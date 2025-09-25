@@ -1,0 +1,82 @@
+/* ======================
+   Global
+   ====================== */
+QWidget {
+    background-color: #808080;   /* Fond général */
+    color: #FFFFFF;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+}
+
+/* ======================
+   Boutons
+   ====================== */
+QPushButton {
+    background-color: #F2A30F;
+    color: #FFFFFF;
+    border: 2px solid #FFD56B;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #ffb733;
+    border: 2px solid #ffe3a1;
+}
+
+QPushButton:pressed {
+    background-color: #cc8400;
+    border: 2px solid #ffb733;
+}
+
+/* ======================
+   Zones de saisie
+   ====================== */
+QLineEdit, QTextEdit, QComboBox {
+    background-color: #E0E0E0;   /* Gris clair */
+    color: #000000;              /* Texte noir pour la lisibilité */
+    border: 1px solid #CCCCCC;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+QLineEdit:focus, QTextEdit:focus, QComboBox:focus, QSpinBox:focus {
+    border: 2px solid #F2A30F;   /* Bordure orange au focus */
+}
+
+/* ======================
+   SpinBox & DoubleSpinBox boutons
+   ====================== */
+QSpinBox, QDoubleSpinBox {
+    width: 18px;
+    border-left: 1px solid #AAAAAA;
+    background-color: #E0E0E0;   /* Gris clair */
+    color: #000000;              /* Texte noir pour la lisibilité */
+
+}
+
+/* ======================
+   Menubar
+   ====================== */
+QMenuBar {
+    background-color: #666666;
+    color: #FFFFFF;
+}
+
+QMenuBar::item:selected {
+    background-color: #F2A30F;
+    color: #FFFFFF;
+}
+
+QMenu {
+    background-color: #666666;
+    color: #FFFFFF;
+    border: 1px solid #AAAAAA;
+}
+
+QMenu::item:selected {
+    background-color: #F2A30F;
+    color: #FFFFFF;
+}
+
