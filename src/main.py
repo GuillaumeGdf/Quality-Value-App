@@ -24,7 +24,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 from model.tikr_2016_2024 import ExcelLoader, Analysis, monte_carlo_sensitivity_analysis, write_excel
-
+from model.portfolio_metrics_engine import PortfolioMetricsEngine
 
 # Pour la compilation du .ui
 # --> pyside6-uic C:\Users\guill\Desktop\Dev\Quality-Value-App\src\gui\MainWindow.ui -o C:\Users\guill\Desktop\Dev\Quality-Value-App\src\gui\MainWindow.py
