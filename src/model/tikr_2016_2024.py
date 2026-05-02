@@ -242,14 +242,6 @@ class Analysis:
         Returns: dataframe contenant les EBIT/TEV et al distance relative, un dataframe contenant les statistiques par
         secteur et un dataframe contenant les actions sous-évaluées
         """
-        lower = 0.05
-        upper = 0.95
-
-        # Dictionnaires pour stocker les résultats par secteur
-        EBIT_OV_TEV_MEAN = {}
-        EBIT_OV_TEV_MAD = {}
-        EBIT_OV_TEV_MEDIAN = {}
-
         res = pd.DataFrame()
         # date = f'EBIT {self.end_year}' if self.end_year != 2025 else 'EBIT LTM'
         date = 'EBIT LTM'
@@ -257,87 +249,191 @@ class Analysis:
         res['Sector'] = self.data_general['Sector']
         res = res.dropna(subset=['Sector'])
 
-        for sector, group in res.groupby('Sector'):
-            clean_vals = group['EBIT/TEV'].dropna()
-            if clean_vals.empty:
-                continue
+        if model == 'LASSO' or model == 'Huber':
+            # 2. Calcul du Double Z-Score Robuste
+            # Un EBIT/TEV élevé = Entreprise "Cheap" = Score positif élevé
+            for scope in ['sector', 'global']:
+                if scope == 'sector':
+                    stats = res.groupby('Sector')['EBIT/TEV'].agg(
+                        ['median', lambda x: np.median(np.abs(x - np.median(x)))])
+                    stats.columns = ['med', 'mad']
+                    res = res.join(stats, on='Sector')
+                    res['Z_sector'] = np.clip((res['EBIT/TEV'] - res['med']) / (res['mad'] + 1e-6), -5, 5)
+                    res.drop(columns=['med', 'mad'], inplace=True)
 
-            lower_bound = group['EBIT/TEV'].quantile(lower)
-            upper_bound = group['EBIT/TEV'].quantile(upper)
+                else:
+                    glob_med = res['EBIT/TEV'].median()
+                    glob_mad = np.median(np.abs(res['EBIT/TEV'] - glob_med))
+                    res['Z_global'] = np.clip((res['EBIT/TEV'] - glob_med) / (glob_mad + 1e-6), -5, 5)
 
-            # Winsorisation : on garde les valeurs dans l'intervalle [5%, 95%]
-            filtered = group['EBIT/TEV'][
-                (group['EBIT/TEV'] >= lower_bound) &
-                (group['EBIT/TEV'] <= upper_bound)
-                ]
+            # 3. Score Final Homogénéisé (Pondération 50/50 et Clipping)
+            res['Score_Final'] = (res['Z_sector'] * 0.5) + (res['Z_global'] * 0.5)
 
-            # Calcul de la moyenne winsorisée et de la MAD
-            mean_val = filtered.mean()
-            mad_val = abs(filtered - filtered.median()).median()
+            # 4. Calcul du Rang (0 à 100)
+            res['Rank'] = res['Score_Final'].rank(pct=True) * 100
 
-            EBIT_OV_TEV_MEAN[sector] = mean_val
-            EBIT_OV_TEV_MAD[sector] = mad_val
-            EBIT_OV_TEV_MEDIAN[sector] = np.median(filtered)
+            # 5. Statistiques Sectorielles (pour la compatibilité de sortie)
+            sector_stats = res.groupby('Sector')['Score_Final'].agg([
+                ('Nombre_Actions', 'count'),
+                (f'Seuil_{int(percentile * 1e2)}percentile', lambda x: x.quantile(percentile)),
+                ('Moyenne', 'mean'),
+                ('Mediane', 'median')
+            ]).reset_index()
 
-        # Ajout de la série contenant les valeurs médiannes par grand secteur
-        res['EBIT/TEV_MEAN'] = res['Sector'].map(EBIT_OV_TEV_MEAN)
-        res['EBIT/TEV_MAD'] = res['Sector'].map(EBIT_OV_TEV_MAD)
-        res['EBIT/TEV_MEDIAN'] = res['Sector'].map(EBIT_OV_TEV_MEDIAN)
+            # Identification des actions sous-évaluées (Top percentile)
+            tmp = pd.merge(res, sector_stats[['Sector', f'Seuil_{int(percentile * 1e2)}percentile']],
+                           on='Sector', how='left').set_index(res.index)
+            undervalued_stocks = tmp[tmp['Score_Final'] > tmp[f'Seuil_{int(percentile * 1e2)}percentile']]
 
-        # Calcul de la distance relative pour déterminer si signal d'achat ou pas : Z-Score
-        res['Relative_Distance'] = (res['EBIT/TEV'] - res['EBIT/TEV_MEAN']) / (res['EBIT/TEV_MAD'] + 1e-8)
+            # Tri par Score Final
+            res = res.sort_values(by='Score_Final', ascending=False)
 
-        # Suppression des données non utilisables
-        res = res.dropna()
+            # Sélection des colonnes pour l'homogénéité avec les autres moteurs
+            columns_to_show = ['Sector', 'EBIT/TEV', 'Z_sector', 'Z_global', 'Score_Final', 'Rank']
+            return res[columns_to_show], sector_stats, undervalued_stocks
 
-        # Normalisation inter-sectorielle
-        sector_z_means = res.groupby('Sector')['Relative_Distance'].mean().to_dict()
-        mean_z_global = np.mean(list(sector_z_means.values()))
+        else:
+            lower = 0.05
+            upper = 0.95
 
-        # Ajustement intersectoriel
-        res.loc[:, 'Zscore_adj'] = res['Relative_Distance'] - mean_z_global
+            # Dictionnaires pour stocker les résultats par secteur
+            EBIT_OV_TEV_MEAN = {}
+            EBIT_OV_TEV_MAD = {}
+            EBIT_OV_TEV_MEDIAN = {}
 
-        if not model == 'LASSO':
-            # Value Condition
-            res['AboveMedian&10YYield'] = (res['EBIT/TEV'] > res['EBIT/TEV_MEDIAN']) & (res["EBIT/TEV"] > risk_free_rate)
+            for sector, group in res.groupby('Sector'):
+                clean_vals = group['EBIT/TEV'].dropna()
+                if clean_vals.empty:
+                    continue
 
-            # On ne garde que les entreprises dont le prix est inférieur à la médiane de leur secteur
-            res = res.loc[res['AboveMedian&10YYield'] == True].copy()
+                lower_bound = group['EBIT/TEV'].quantile(lower)
+                upper_bound = group['EBIT/TEV'].quantile(upper)
 
-        # Classement globale en fonction de la distance relative
-        res = res.sort_values(by='Zscore_adj', ascending=False)
+                # Winsorisation : on garde les valeurs dans l'intervalle [5%, 95%]
+                filtered = group['EBIT/TEV'][
+                    (group['EBIT/TEV'] >= lower_bound) &
+                    (group['EBIT/TEV'] <= upper_bound)
+                    ]
 
-        # Création du classement en percentiles
-        res['Rank'] = res['Zscore_adj'].rank(pct=True, ascending=True) * 100
+                # Calcul de la moyenne winsorisée et de la MAD
+                mean_val = filtered.mean()
+                mad_val = abs(filtered - filtered.median()).median()
 
-        # Ajout d'une interprétation de la valorisation en fonction de la distance relative
-        choices = ["Anomalie", "Sous-évaluée", "Fair"]
-        conditions = [res['Zscore_adj'] > 1,
-                      (res['Zscore_adj'] > 0.5) & (res['Zscore_adj'] <= 1),
-                      res['Zscore_adj'] <= 0.5
-                      ]
+                EBIT_OV_TEV_MEAN[sector] = mean_val
+                EBIT_OV_TEV_MAD[sector] = mad_val
+                EBIT_OV_TEV_MEDIAN[sector] = np.median(filtered)
 
-        res['Opinion'] = np.select(conditions, choices, default="Non évaluée")
+            # Ajout de la série contenant les valeurs médiannes par grand secteur
+            res['EBIT/TEV_MEAN'] = res['Sector'].map(EBIT_OV_TEV_MEAN)
+            res['EBIT/TEV_MAD'] = res['Sector'].map(EBIT_OV_TEV_MAD)
+            res['EBIT/TEV_MEDIAN'] = res['Sector'].map(EBIT_OV_TEV_MEDIAN)
 
-        # Calcul des statistiques par secteur en fonction de la distance relative
-        sector_stats = res.groupby('Sector')['Zscore_adj'].agg([
-            ('Nombre_Actions', 'count'),  # Nombre d'actions par secteur
-            (f'Seuil_{int(percentile * 1e2)}percentile', lambda x: x.quantile(percentile)),  # Seuil des X% supérieurs
-            ('Moyenne', 'mean'),  # Moyenne des distances relatives
-            ('Mediane', 'median')  # Médiane des distances relatives
-        ]).reset_index()
+            # Calcul de la distance relative pour déterminer si signal d'achat ou pas : Z-Score
+            res['Relative_Distance'] = (res['EBIT/TEV'] - res['EBIT/TEV_MEAN']) / (res['EBIT/TEV_MAD'] + 1e-8)
 
-        # Récupération des X% les plus sous-évaluées par secteur
-        tmp = pd.merge(res, sector_stats[['Sector', f'Seuil_{int(percentile * 1e2)}percentile']],
-                       on='Sector',
-                       how='left'
-                       ).set_index(res.index)
-        undervalued_stocks = tmp[tmp['Zscore_adj'] > tmp[f'Seuil_{int(percentile * 1e2)}percentile']]
+            # Suppression des données non utilisables
+            res = res.dropna()
 
-        # Tri
-        res = res.sort_values(by='Rank', ascending=False)
+            # Normalisation inter-sectorielle
+            sector_z_means = res.groupby('Sector')['Relative_Distance'].mean().to_dict()
+            mean_z_global = np.mean(list(sector_z_means.values()))
+
+            # Ajustement intersectoriel
+            res.loc[:, 'Zscore_adj'] = res['Relative_Distance'] - mean_z_global
+
+            if not model == 'LASSO':
+                # Value Condition
+                res['AboveMedian&10YYield'] = (res['EBIT/TEV'] > res['EBIT/TEV_MEDIAN']) & (res["EBIT/TEV"] > risk_free_rate)
+
+                # On ne garde que les entreprises dont le prix est inférieur à la médiane de leur secteur
+                res = res.loc[res['AboveMedian&10YYield'] == True].copy()
+
+            # Classement globale en fonction de la distance relative
+            res = res.sort_values(by='Zscore_adj', ascending=False)
+
+            # Création du classement en percentiles
+            res['Rank'] = res['Zscore_adj'].rank(pct=True, ascending=True) * 100
+
+            # Ajout d'une interprétation de la valorisation en fonction de la distance relative
+            choices = ["Anomalie", "Sous-évaluée", "Fair"]
+            conditions = [res['Zscore_adj'] > 1,
+                          (res['Zscore_adj'] > 0.5) & (res['Zscore_adj'] <= 1),
+                          res['Zscore_adj'] <= 0.5
+                          ]
+
+            res['Opinion'] = np.select(conditions, choices, default="Non évaluée")
+
+            # Calcul des statistiques par secteur en fonction de la distance relative
+            sector_stats = res.groupby('Sector')['Zscore_adj'].agg([
+                ('Nombre_Actions', 'count'),  # Nombre d'actions par secteur
+                (f'Seuil_{int(percentile * 1e2)}percentile', lambda x: x.quantile(percentile)),  # Seuil des X% supérieurs
+                ('Moyenne', 'mean'),  # Moyenne des distances relatives
+                ('Mediane', 'median')  # Médiane des distances relatives
+            ]).reset_index()
+
+            # Récupération des X% les plus sous-évaluées par secteur
+            tmp = pd.merge(res, sector_stats[['Sector', f'Seuil_{int(percentile * 1e2)}percentile']],
+                           on='Sector',
+                           how='left'
+                           ).set_index(res.index)
+            undervalued_stocks = tmp[tmp['Zscore_adj'] > tmp[f'Seuil_{int(percentile * 1e2)}percentile']]
+
+            # Tri
+            res = res.sort_values(by='Rank', ascending=False)
 
         return res, sector_stats, undervalued_stocks
+
+    def check_debt_solvency(self, model: str = 'LASSO') -> pd.DataFrame:
+        """
+        Analyse de l'endettement homogénéisée.
+        Calcule le ratio Dette/EBIT(DA), normalise par double Z-score robuste,
+        et inverse le signe pour que 'faible dette' = 'score élevé'.
+        """
+        # 1. Sélection de la donnée source selon la disponibilité
+        if self.end_year != 2025:  # Ajustez selon votre logique de date LTM
+            # Utilisation de l'EBIT pour la rigueur (après amortissements)
+            debt_ratio = (self.data_general[f'Total Debt {self.end_year}'] /
+                          (self.data_general[f'EBIT {self.end_year}'] + 1e-6))
+        else:
+            # Fallback sur le ratio EBITDA standard si LTM
+            debt_ratio = self.data_general['Total Debt / EBITDA']
+
+        debt_df = pd.DataFrame({
+            'Debt_Ratio': pd.to_numeric(debt_ratio, errors='coerce'),
+            'Sector': self.data_general['Sector']
+        }).dropna()
+
+        if model == 'LASSO' or model == 'Huber':
+            # 2. Calcul du Double Z-score
+            # Note : On veut pénaliser les ratios élevés, donc on utilise (Médiane - Valeur)
+            for scope in ['sector', 'global']:
+                if scope == 'sector':
+                    stats = debt_df.groupby('Sector')['Debt_Ratio'].agg(
+                        ['median', lambda x: np.median(np.abs(x - np.median(x)))])
+                    stats.columns = ['med', 'mad']
+                    debt_df = debt_df.join(stats, on='Sector')
+                    # Inversion : un ratio au-dessus de la médiane devient négatif
+                    debt_df['Z_sector'] = np.clip((debt_df['med'] - debt_df['Debt_Ratio']) / (debt_df['mad'] + 1e-6), -5, 5)
+                    debt_df.drop(columns=['med', 'mad'], inplace=True)
+
+                else:
+                    glob_med = debt_df['Debt_Ratio'].median()
+                    glob_mad = np.median(np.abs(debt_df['Debt_Ratio'] - glob_med))
+                    debt_df['Z_global'] = np.clip((glob_med - debt_df['Debt_Ratio']) / (glob_mad + 1e-6), -5, 5)
+
+            # 3. Score Final Homogénéisé et Clipping
+            # Une entreprise très endettée aura un Score_Final proche de -5
+            # Une entreprise "Cash Net" aura un Score_Final proche de +5
+            debt_df['Score_Final'] = (debt_df['Z_sector'] * 0.5) + (debt_df['Z_global'] * 0.5)
+
+            # 4. Calcul du Rang (0-100)
+            debt_df['Rank'] = debt_df['Score_Final'].rank(pct=True) * 100
+
+            # Tri et sélection des colonnes
+            return debt_df[['Sector', 'Debt_Ratio', 'Z_sector', 'Z_global', 'Score_Final', 'Rank']].sort_values(
+                by='Score_Final', ascending=False)
+
+        return debt_df
 
     def check_shares_buyback(self, max_threshold: float = 0.04, model: str = 'LASSO') -> pd.DataFrame:
         """
@@ -360,16 +456,37 @@ class Analysis:
                               (buyback_df[f'# of shares {self.start_year}'] + 1e-4)) ** (1 / n_years) - 1
 
         if model == 'LASSO':
-            buyback_df['Rank_Global'] = buyback_df['CAGR'].rank(pct=True, ascending=False)
-            buyback_df['Rank_Sector'] = buyback_df.groupby('Sector')['CAGR'].rank(pct=True, ascending=False)
+            for scope in ['sector', 'global']:
+                if scope == 'sector':
+                    stats = buyback_df.groupby('Sector')['CAGR'].agg(
+                        ['median', lambda x: np.median(np.abs(x - np.median(x)))])
+                    stats.columns = ['med', 'mad']
+                    buyback_df = buyback_df.join(stats, on='Sector')
 
-            # Classe les actions en fonction de leur rachat d'actions + réarrangement
-            buyback_df['Score_Buyback'] = (0.7 * buyback_df['Rank_Global']) + (0.3 * buyback_df['Rank_Sector'])
+                    # Inversion : (Median - Value) pour valoriser les rachats
+                    buyback_df['Z_sector'] = np.clip((buyback_df['med'] - buyback_df['CAGR']) /
+                                                     (buyback_df['mad'] + 1e-6), -5, 5)
+                    buyback_df.drop(columns=['med', 'mad'], inplace=True)
 
-            # 5. Tri pour visualisation
-            buyback_df = buyback_df.sort_values(by='Score_Buyback', ascending=False)
+                else:
+                    glob_med = buyback_df['CAGR'].median()
+                    glob_mad = np.median(np.abs(buyback_df['CAGR'] - glob_med))
 
-            return buyback_df[['Sector', 'CAGR', 'Rank_Global', 'Rank_Sector', 'Score_Buyback']]
+                    # Inversion : (Median - Value)
+                    buyback_df['Z_global'] = np.clip((glob_med - buyback_df['CAGR']) /
+                                                     (glob_mad + 1e-6), -5, 5)
+
+                # 2. Pondération 50/50 et Clipping à +/- 5
+                # Les entreprises diluant > max_threshold seront naturellement projetées vers des scores très négatifs
+            buyback_df['Score_Final'] = (np.clip(buyback_df['Z_sector'], -5, 5) * 0.5 +
+                                         np.clip(buyback_df['Z_global'], -5, 5) * 0.5)
+
+            # 3. Calcul du Rang pour suivi (0-100)
+            buyback_df['Rank'] = buyback_df['Score_Final'].rank(pct=True) * 100
+
+            # 4. Tri et sélection des colonnes pour homogénéité avec les autres fonctions
+            res_buyback = buyback_df[['Sector', 'CAGR', 'Z_sector', 'Z_global', 'Score_Final', 'Rank']]
+            return res_buyback.sort_values(by='Score_Final', ascending=False)
 
         else:
             buyback_df['Valid'] = buyback_df['CAGR'].apply(lambda x: x < max_threshold)
@@ -425,31 +542,49 @@ class Analysis:
             'Margin_Stability': metrics_df['MedAE']
         })
 
-        # 3. Normalisation Sectorielle (Évite l'écrasement par un seul max)
+        metrics = ['Margin_Level', 'Margin_Slope', 'Margin_Stability']
+
+        # 1. DOUBLE Z-SCORING (Secteur + Global)
+        for metric in metrics:
+            # La stabilité est meilleure quand elle est petite (MedAE), on inverse donc le signe pour le Z-score
+            multiplier = -1 if metric == 'Margin_Stability' else 1
+
+            # --- Z-Score Sectoriel ---
+            sector_stats = res.groupby('Sector')[metric].agg(['median', lambda x: np.median(np.abs(x - np.median(x)))])
+            sector_stats.columns = ['med', 'mad']
+
+            res = res.join(sector_stats, on='Sector')
+            res[f'Z_sector_{metric}'] = multiplier * (res[metric] - res['med']) / (res['mad'] + 1e-6)
+            res.drop(columns=['med', 'mad'], inplace=True)
+
+            # --- Z-Score Global ---
+            glob_med = res[metric].median()
+            glob_mad = np.median(np.abs(res[metric] - glob_med))
+            res[f'Z_global_{metric}'] = multiplier * (res[metric] - glob_med) / (glob_mad + 1e-6)
+
+            # --- Clipping et Combinaison (50/50) ---
+            res[f'Z_sector_{metric}'] = np.clip(res[f'Z_sector_{metric}'], -5, 5)
+            res[f'Z_global_{metric}'] = np.clip(res[f'Z_global_{metric}'], -5, 5)
+
+            res[f'Score_{metric}'] = 0.5 * res[f'Z_sector_{metric}'] + 0.5 * res[f'Z_global_{metric}']
+
+        # 2. CALCUL DU GAP RATIO (Basé sur le niveau global pour la hiérarchie)
         sector_95 = res.groupby('Sector')['Margin_Level'].quantile(0.95).to_dict()
         res['Sector_Top'] = res['Sector'].map(sector_95)
+        # Protection contre division par zéro et clipping
+        gap_ratio = ((res['Sector_Top'] - res['Margin_Level']) / (res['Sector_Top'] + 1e-6)).clip(0, 1)
 
-        # 4. Scoring (Rangs robustes)
-        # Rangs sectoriels (Percentile au sein de chaque secteur)
-        res['Rank_Level'] = res.groupby('Sector')['Margin_Level'].rank(pct=True)
-        res['Rank_Slope'] = res.groupby('Sector')['Margin_Slope'].rank(pct=True)
-        res['Rank_Stability'] = res.groupby('Sector')['Margin_Stability'].rank(pct=True, ascending=False)
+        # 3. SCORE DE QUALITÉ FINAL (Homogène au Chiffre d'Affaires)
+        # On utilise les Z_final combinés
+        res['Score_Final'] = ((1 - gap_ratio) * res['Score_Margin_Level'] +
+                                gap_ratio * res['Score_Margin_Slope'] +
+                                0.5 * res['Score_Margin_Stability']) / 1.5
 
-        # 5. Application de ta logique de poids (avec garde-fou)
-        gap_ratio = ((res['Sector_Top'] - res['Margin_Level']) / res['Sector_Top']).clip(0, 1)
+        # 4. RANG FINAL (pour la visualisation et le tri)
+        res['Rank'] = res['Score_Final'].rank(pct=True) * 100
+        res = res.sort_values('Score_Final', ascending=False)
 
-        res['Quality_Score'] = ((1 - gap_ratio) * res['Rank_Level'] +
-                                gap_ratio * res['Rank_Slope'] +
-                                0.5 * res['Rank_Stability']
-                                ) / (1 + 0.5)
-
-        # Z-score robuste pour homogéinisation
-        final_med = res['Quality_Score'].median()
-        final_mad = np.median(np.abs(res['Quality_Score'] - final_med))
-        res['Z_Quality_Margin'] = (res['Quality_Score'] - final_med) / (final_mad + 1e-6)
-        res['Z_Quality_Margin'] = res['Z_Quality_Margin'].clip(-5, 5)
-
-        return res.sort_values('Quality_Score', ascending=False)
+        return res
 
     def check_fcf_and_roic_gr(self, model: str = 'Huber') -> tuple[pd.DataFrame, pd.DataFrame]:
         """
@@ -470,12 +605,6 @@ class Analysis:
         fcf = fcf.apply(pd.to_numeric, errors='coerce')
         fcf = fcf.dropna()
 
-        cfoa = fcf.sum(axis=1) / self.data_fcf_roic[f'Total Assets {self.end_year}']
-        res_cfoa = pd.DataFrame({'CFOA': cfoa})
-
-        res_cfoa['Rank'] = res_cfoa['CFOA'].rank(pct=True) * 100
-        res_cfoa = res_cfoa.sort_values(by='Rank', ascending=False)
-
         # Partie ROIC
         roic_names = [k for k in self.data_fcf_roic.columns if 'ROIC 20' in k]
         roic_names = [name for name in roic_names
@@ -486,6 +615,26 @@ class Analysis:
         roic = roic.dropna()
 
         if model == 'Huber':
+            cfoa_brut = fcf.sum(axis=1) / (self.data_fcf_roic[f'Total Assets {self.end_year}'] + 1e-6)
+            res_cfoa = pd.DataFrame({'CFOA_Raw': cfoa_brut, 'Sector': self.data_fcf_roic['Sector']})
+
+            # Double Z-score pour le CFOA
+            for scope in ['sector', 'global']:
+                if scope == 'sector':
+                    stats = res_cfoa.groupby('Sector')['CFOA_Raw'].agg(
+                        ['median', lambda x: np.median(np.abs(x - np.median(x)))])
+                    stats.columns = ['med', 'mad']
+                    res_cfoa = res_cfoa.join(stats, on='Sector')
+                    res_cfoa['Z_sector'] = np.clip((res_cfoa['CFOA_Raw'] - res_cfoa['med']) / (res_cfoa['mad'] + 1e-6), -5, 5)
+                    res_cfoa.drop(columns=['med', 'mad'], inplace=True)
+                else:
+                    glob_med = res_cfoa['CFOA_Raw'].median()
+                    glob_mad = np.median(np.abs(res_cfoa['CFOA_Raw'] - glob_med))
+                    res_cfoa['Z_global'] = np.clip((res_cfoa['CFOA_Raw'] - glob_med) / (glob_mad + 1e-6), -5, 5)
+
+            res_cfoa['Score_Final'] = res_cfoa['Z_sector'] * 0.5 + res_cfoa['Z_global'] * 0.5
+            res_cfoa['Rank'] = res_cfoa['Score_Final'].rank(pct=True) * 100
+
             raw_values = roic.values
             t_shared = np.arange(roic.shape[1]) - np.arange(roic.shape[1]).mean()
 
@@ -505,38 +654,49 @@ class Analysis:
 
             res_groic = pd.DataFrame({
                 'Sector': self.data_gross_margin['Sector'],
-                'ROIC_Level': roic.mean(axis=1),
-                'ROIC_Slope': metrics_df['Slope_bps'],
-                'ROIC_Stability': metrics_df['MedAE']
+                'Level': roic.mean(axis=1),
+                'Slope': metrics_df['Slope_bps'],
+                'Stability': metrics_df['MedAE']
             })
 
-            res_groic['Rank_Level'] = res_groic.groupby('Sector')['ROIC_Level'].rank(pct=True)
-            res_groic['Rank_Slope'] = res_groic.groupby('Sector')['ROIC_Slope'].rank(pct=True)
-            res_groic['Rank_Stability'] = res_groic.groupby('Sector')['ROIC_Stability'].rank(pct=True, ascending=False)
+            # Application du double Z-score sur les 3 métriques ROIC
+            metrics = ['Level', 'Slope', 'Stability']
+            for m in metrics:
+                inv = -1 if m == 'Stability' else 1
 
-            # 3. Sector Top pour le Gap Ratio (Quantile 0.95)
-            sector_top = res_groic.groupby('Sector')['ROIC_Level'].quantile(0.95).to_dict()
-            res_groic['Sector_Top'] = res_groic['Sector'].map(sector_top)
-            res_groic['Sector_Top'] = np.maximum(res_groic['Sector_Top'], res_groic['ROIC_Level'])
+                # Sectoriel
+                s_stats = res_groic.groupby('Sector')[m].agg(['median', lambda x: np.median(np.abs(x - np.median(x)))])
+                res_groic = res_groic.join(s_stats.rename(columns={'median': 'med', '<lambda_0>': 'mad'}), on='Sector')
+                z_sec = inv * (res_groic[m] - res_groic['med']) / (res_groic['mad'] + 1e-6)
 
-            res_groic['Gap_Ratio'] = ((res_groic['Sector_Top'] - res_groic['ROIC_Level']) /
-                                      res_groic['Sector_Top']).clip(0, 1)
+                # Global
+                g_med = res_groic[m].median()
+                g_mad = np.median(np.abs(res_groic[m] - g_med))
+                z_glob = inv * (res_groic[m] - g_med) / (g_mad + 1e-6)
 
-            # 5. Application de la Solution 1 : Pondération Adaptative
-            # Si Gap -> 0 (Leader) : Priorité au Niveau (Rank_Level)
-            # Si Gap -> 1 (Challenger) : Priorité à la Croissance (Rank_Slope)
-            # La Stabilité (Rank_Stability) agit comme un filtre de confiance constant
-            res_groic['Quality_Score'] = ((1 - res_groic['Gap_Ratio']) * res_groic['Rank_Level'] +
-                                          res_groic['Gap_Ratio'] * res_groic['Rank_Slope'] +
-                                          0.5 * res_groic['Rank_Stability']
-                                         ) / 1.5
+                res_groic[f'Score_{m}'] = (np.clip(z_sec, -5, 5) * 0.5 + np.clip(z_glob, -5, 5) * 0.5)
+                res_groic.drop(columns=['med', 'mad'], inplace=True)
 
-            # 6. Tri final pour l'analyse
-            res_groic = res_groic.sort_values(by='Quality_Score', ascending=False)
+            # Gap Ratio & Quality Score (Identique à la Marge Brute)
+            sector_top = res_groic.groupby('Sector')['Level'].quantile(0.95).to_dict()
+            res_groic['Gap_Ratio'] = ((res_groic['Sector'].map(sector_top) - res_groic['Level']) /
+                                      (res_groic['Sector'].map(sector_top) + 1e-6)).clip(0, 1)
 
-            return res_cfoa, res_groic
+            res_groic['Score_Final'] = ((1 - res_groic['Gap_Ratio']) * res_groic['Score_Level'] +
+                                        res_groic['Gap_Ratio'] * res_groic['Score_Slope'] +
+                                        0.5 * res_groic['Score_Stability']) / 1.5
+
+            res_groic['Rank'] = res_groic['Score_Final'].rank(pct=True) * 100
+
+            return (res_cfoa.sort_values('Score_Final', ascending=False),
+                    res_groic.sort_values('Score_Final', ascending=False))
 
         else:
+            cfoa = fcf.sum(axis=1) / self.data_fcf_roic[f'Total Assets {self.end_year}']
+            res_cfoa = pd.DataFrame({'CFOA': cfoa})
+
+            res_cfoa['Rank'] = res_cfoa['CFOA'].rank(pct=True) * 100
+            res_cfoa = res_cfoa.sort_values(by='Rank', ascending=False)
 
             # Modèle de Gray & Carlisle
             def geometric_growth(s):
@@ -570,7 +730,7 @@ class Analysis:
 
             return res_cfoa, res_groic
 
-    def compute_piotroski_score(self, score_threshold: int = 5) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def compute_piotroski_score(self, score_threshold: int = 5, model: str = 'LASSO') -> tuple[pd.DataFrame, pd.DataFrame]:
         pd.set_option('future.no_silent_downcasting', True)
 
         final_score = pd.Series(np.zeros(len(self.data_piotroski.index), dtype=int), index=self.data_piotroski.index,
@@ -656,20 +816,54 @@ class Analysis:
         delta_FCF = FCF - self.data_piotroski[f'FCF {self.end_year-1}'] / self.data_piotroski[f'Total Assets {self.end_year-1}']
         final_score += (delta_FCF > 0).astype(int)
 
-        rank = final_score.rank(pct=True) * 1e2
-        rank.name = 'Rank'
-        final_score.name = 'Piotroski Score'
+        # Homogénéisation des scores
+        if model == 'LASSO':
+            res_piot = pd.DataFrame({
+                'Piotroski_Raw': final_score,
+                'Sector': self.data_piotroski['Sector']
+            })
 
-        # Création du dataframe final
-        final_score = pd.DataFrame({final_score.name: final_score,
-                                    rank.name: rank
-                                    }
-                                   )
+            for scope in ['sector', 'global']:
+                if scope == 'sector':
+                    stats = res_piot.groupby('Sector')['Piotroski_Raw'].agg(
+                        ['median', lambda x: np.median(np.abs(x - np.median(x)))])
+                    stats.columns = ['med', 'mad']
+                    res_piot = res_piot.join(stats, on='Sector')
+                    res_piot['Z_sector'] = np.clip((res_piot['Piotroski_Raw'] - res_piot['med']) /
+                                                   (res_piot['mad'] + 1e-6), -5, 5)
+                    res_piot.drop(columns=['med', 'mad'], inplace=True)
+                else:
+                    glob_med = res_piot['Piotroski_Raw'].median()
+                    glob_mad = np.median(np.abs(res_piot['Piotroski_Raw'] - glob_med))
+                    res_piot['Z_global'] = np.clip((res_piot['Piotroski_Raw'] - glob_med) /
+                                                   (glob_mad + 1e-6), -5, 5)
 
-        final_score = final_score.sort_values(by='Rank', ascending=False)
-        final_score_sorted = final_score[final_score['Piotroski Score'] >= score_threshold]
+            # Score Final harmonisé sur [-5, 5]
+            res_piot['Score_Final'] = res_piot['Z_sector'] * 0.5 + res_piot['Z_global'] * 0.5
 
-        return final_score, final_score_sorted
+            res_piot['Rank'] = res_piot['Score_Final'].rank(pct=True) * 100
+
+            # Filtrage selon le seuil initial sur le score brut
+            final_score_full = res_piot.sort_values(by='Rank', ascending=False)
+            final_score_filtered = final_score_full[final_score_full['Piotroski_Raw'] >= score_threshold]
+
+            return final_score_full, final_score_filtered
+
+        else:
+            rank = final_score.rank(pct=True) * 1e2
+            rank.name = 'Rank'
+            final_score.name = 'Piotroski Score'
+
+            # Création du dataframe final
+            final_score = pd.DataFrame({final_score.name: final_score,
+                                        rank.name: rank
+                                        }
+                                       )
+
+            final_score = final_score.sort_values(by='Rank', ascending=False)
+            final_score_sorted = final_score[final_score['Piotroski Score'] >= score_threshold]
+
+            return final_score, final_score_sorted
 
 
 def monte_carlo_sensitivity_analysis(param: "Parameters",

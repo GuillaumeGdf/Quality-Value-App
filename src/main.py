@@ -573,25 +573,20 @@ class MainWindow(QMainWindow):
         self.buyback_results = self.parameters.analysis.check_shares_buyback()
         self.piotroski_results, self.piotroski_results_reduced = self.parameters.analysis.compute_piotroski_score()
         self.value_results, self.value_sector_stats, _ = self.parameters.analysis.find_cheapest_stocks(risk_free_rate=0.045)
-
-        if self.parameters.end_year != self.ui.sp_end_year.value():
-            debt_ebit = (self.parameters.analysis.data_general[f'Total Debt {self.parameters.end_year}'] /
-                         self.parameters.analysis.data_general[f'EBIT {self.parameters.end_year}'])
-        else:
-            debt_ebit = self.parameters.analysis.data_general['Total Debt / EBITDA']
-
-        self.debt_series = (debt_ebit.rank(pct=True, ascending=False) * 100).sort_values(ascending=False)
+        self.debt_series = self.parameters.analysis.check_debt_solvency()
 
         # Initialisation de la classe RobustFinancialLoader pour normaliser les données d'entrée avant d'être
         # passées dans l'algorithme de sélection de variables robuste LASSO.
-        robust_financial_loader = RobustFinancialLoader([self.revenues_results,
-                                                         self.gross_margin_results,
-                                                         self.cfoa_results,
-                                                         self.groc_results,
-                                                         self.buyback_results,
-                                                         self.piotroski_results,
-                                                         self.value_results
-                                                         ])
+        df_list = [self.revenues_results, self.gross_margin_results,
+                   self.cfoa_results, self.groc_results, self.buyback_results,
+                   self.piotroski_results, self.value_results, self.debt_series ]
+
+        loader_lasso = RobustFinancialLoader(dfs=df_list, mode='Z-score', feature_names=['Revenues', 'Gross Margin',
+                                                                                         'CFOA', 'ROIC', 'Buyback',
+                                                                                         'Piotroski', 'Value',
+                                                                                         'Solvency'])
+        X_df_lasso = loader_lasso.get_dataframe()
+        X_matrice_lasso = loader_lasso.get_X()
 
         self.results_storage = {'Revenues': self.revenues_results,
                                 'GrossMargin': self.gross_margin_results,
