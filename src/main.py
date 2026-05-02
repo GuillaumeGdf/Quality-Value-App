@@ -23,7 +23,10 @@ from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QRect, QEasingC
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
-from model.tikr_2016_2024 import ExcelLoader, Analysis, monte_carlo_sensitivity_analysis, write_excel
+from model.Classes.data_manager import RobustFinancialLoader
+from model.parameters import Parameters
+from model.Classes.excel_loader import ExcelLoader
+from model.tikr_2016_2024 import Analysis, monte_carlo_sensitivity_analysis, write_excel
 from model.portfolio_metrics_engine import PortfolioMetricsEngine
 
 # Pour la compilation du .ui
@@ -147,20 +150,8 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)  # charge l'IHM générée par Qt Designer
 
-        # Chemin du projet
-        self.script_path = Path(os.path.abspath(__file__))
-
-        # Initialisation des paramètres
-        self.weights: dict[str, float] = {}
-        self.weights_sum: float = 0.
-        self.seuil_freq_select: float = 0.
-        self.taux_sans_risque: float = 0.
-
-        self.start_year: int = 0
-        self.end_year: int = 0
-
-        self.loader: ExcelLoader | None = None
-        self.analysis: Analysis | None = None
+        self.data_file_path: Path | None = None
+        self.parameters: Parameters | None = None
 
         self.results_storage: dict[str, pd.DataFrame | pd.Series] = {}
 
@@ -185,6 +176,9 @@ class MainWindow(QMainWindow):
         self.debt_series: pd.DataFrame | None = None
         self.detailed_ranking_df: pd.DataFrame | None = None
 
+        # Backtest
+        self.backtest_engine: PortfolioMetricsEngine | None = None
+
         # Fenêtre graphique
         self.graphics_window: GraphicsWindow | None = None
         self.correlation_matrix: pd.DataFrame | None = None
@@ -193,7 +187,7 @@ class MainWindow(QMainWindow):
         self.__update_gui_from_model()
         self.__initialize_connections()
 
-        self.setWindowIcon(QIcon(str(self.script_path.parent.parent / "assets" / "logo.png")))
+        self.setWindowIcon(QIcon(str(self.parameters.script_path.parent.parent / "assets" / "logo.png")))
         self.setWindowTitle("Outil Fondamental d'Analyse Boursière")
 
         self.load_stylesheet()
@@ -204,7 +198,7 @@ class MainWindow(QMainWindow):
 
     def load_stylesheet(self):
         try:
-            with open(self.script_path.parent.parent / "assets" / "style.qss", "r") as f:
+            with open(self.parameters.script_path.parent.parent / "assets" / "style.qss", "r") as f:
                 self.setStyleSheet(f.read())
         except FileNotFoundError:
             # Style par défaut si le fichier n'existe pas
@@ -286,7 +280,8 @@ class MainWindow(QMainWindow):
         msg.setText(about_text)
 
         # Ajouter un logo
-        pixmap = QPixmap(str(self.script_path.parent.parent / "assets" / "logo.png")).scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        pixmap = QPixmap(str(self.parameters.script_path.parent.parent / "assets" / "logo.png")).scaled(
+            64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         msg.setIconPixmap(pixmap)
 
         msg.exec()
@@ -318,13 +313,13 @@ class MainWindow(QMainWindow):
         help_menu.addAction(about_action)
 
         # Barre de statut
-        self.statusBar().showMessage("Prêt")
+        # self.statusBar().showMessage("Prêt")
 
         # Indicateur de progression
         self.progress_bar = QProgressBar()
         self.progress_bar.setMaximumWidth(200)
         self.progress_bar.setVisible(False)
-        self.statusBar().addPermanentWidget(self.progress_bar)
+        # self.statusBar().addPermanentWidget(self.progress_bar)
 
     def __initialize_connections(self):
         self.ui.pb_import_data.clicked.connect(self.__open_file)
@@ -353,7 +348,8 @@ class MainWindow(QMainWindow):
         self.ui.sp_end_year.valueChanged.connect(lambda value: self.__update_period('end_year', value))
 
         self.ui.pb_run.clicked.connect(self.__run_analysis)
-        self.ui.pb_show_graphics_window.clicked.connect(self.__show_graphics_window)
+        self.ui.pb_run_backtest.clicked.connect(self.__run_backtest)
+        self.ui.pb_show_correlation_window.clicked.connect(self.__show_graphics_window)
 
     def toggle_seuil_widgets(self):
         if self.ui.rb_type_freq_selec_dur.isChecked():
@@ -380,38 +376,71 @@ class MainWindow(QMainWindow):
         self.__update_model_from_gui()
 
     def __update_period(self, attribute_name: str, value: float):
-        setattr(self, attribute_name, value)
+        setattr(self.parameters, attribute_name, value)
         self.__update_model_from_gui()
 
     def __update_weights(self, attribute_name: str, value: float):
-        if attribute_name in ['FCF', 'ROIC']:
+        if ('FCF' in attribute_name) or ('ROIC' in attribute_name):
             new_weight = value / 2
-            self.weights['FCF'] = new_weight * 1e-2
-            self.weights['ROIC'] = new_weight * 1e-2
+            self.parameters.weights['FCF'] = new_weight * 1e-2
+            self.parameters.weights['ROIC'] = new_weight * 1e-2
         else:
-            self.weights[attribute_name] = value*1e-2
+            self.parameters.weights[attribute_name] = value*1e-2
 
-        self.weights_sum = sum(self.weights.values())
-        self.ui.l_sum_weights.setText(f"{np.round(self.weights_sum * 1e2, decimals=2)} %")
+        self.parameters.weights_sum = sum(self.parameters.weights.values())
+        self.ui.l_sum_weights.setText(f"{np.round(self.parameters.weights_sum * 1e2, decimals=2)} %")
 
     def __update_gui_from_model(self):
         """ Méthode appelée lors de l'initialisation ou d'une réinitialisation"""
         # Réinitialisation des paramètres
-        self.weights = {'Revenues': 0.05,
-                        'GrossMargin': 0.15,
-                        'FCF': 0.1,
-                        'ROIC': 0.1,
-                        'Debt': 0.05,
-                        'Piotroski': 0.1,
-                        'Buyback': 0.05,
-                        'Value': 0.4
-                        }
-        self.weights_sum = sum(self.weights.values())
-        self.seuil_freq_select = 0.5
-        self.taux_sans_risque = 0.05
+        weights = {'Revenues': 0.05,
+                   'GrossMargin': 0.15,
+                   'FCF': 0.1,
+                   'ROIC': 0.1,
+                   'Debt': 0.05,
+                   'Piotroski': 0.1,
+                   'Buyback': 0.05,
+                   'Value': 0.4
+                   }
 
-        self.start_year = 2016
-        self.end_year = 2024
+        weights_sum = sum(weights.values())
+        seuil_freq_select = 0.5
+        taux_sans_risque = 0.05
+
+        start_year = 2017
+        end_year = 2025
+
+        nbe_monte_carlo = 2500
+        nbe_stocks = 20
+
+        if self.data_file_path:
+            analysis = Analysis(filepath=self.data_file_path)
+
+            self.parameters.weights = weights
+            self.parameters.weights_sum = weights_sum
+            self.parameters.seuil_weights = seuil_freq_select
+            self.parameters.taux_sans_risque = taux_sans_risque
+            self.parameters.start_year = start_year
+            self.parameters.end_year = end_year
+
+            self.parameters.analysis = analysis
+            self.parameters.nbe_monte_carlo = nbe_monte_carlo
+            self.parameters.nbe_stocks = nbe_stocks
+
+        else:
+            analysis = None
+
+            self.parameters = Parameters(script_path=Path(os.path.abspath(__file__)),
+                                         weights=weights,
+                                         weights_sum=weights_sum,
+                                         seuil_freq_select=seuil_freq_select,
+                                         taux_sans_risque=taux_sans_risque,
+                                         start_year=start_year,
+                                         end_year=end_year,
+                                         analysis=analysis,
+                                         nbe_monte_carlo=nbe_monte_carlo,
+                                         nbe_stocks=nbe_stocks
+                                         )
 
         # Réinitialisation des résultats d'analyse
         self.results_storage = {}
@@ -444,8 +473,8 @@ class MainWindow(QMainWindow):
 
         # Réinitialisation de l'interface
         self.ui.rb_type_freq_selec_dur.setChecked(True)
-        self.ui.sb_seuil_freq_select.setValue(self.seuil_freq_select)
-        self.ui.sb_taux_sans_risque.setValue(self.taux_sans_risque)
+        self.ui.sb_seuil_freq_select.setValue(self.parameters.seuil_freq_select)
+        self.ui.sb_taux_sans_risque.setValue(self.parameters.taux_sans_risque)
 
         self.ui.rb_export_results_no.setChecked(True)
         self.ui.le_path_data_export.hide()
@@ -454,31 +483,37 @@ class MainWindow(QMainWindow):
 
         self.ui.pb_export_results.setEnabled(False)
 
-        self.ui.sb_seuil_freq_select.setValue(self.seuil_freq_select * 1e2)
-        self.ui.sb_taux_sans_risque.setValue(self.taux_sans_risque * 1e2)
+        self.ui.sb_seuil_freq_select.setValue(self.parameters.seuil_freq_select * 1e2)
+        self.ui.sb_taux_sans_risque.setValue(self.parameters.taux_sans_risque * 1e2)
 
-        self.ui.sp_ca.setValue(self.weights['Revenues'] * 1e2)
-        self.ui.sp_debt.setValue(self.weights['Debt'] * 1e2)
-        self.ui.sp_buyback.setValue(self.weights['Buyback'] * 1e2)
-        self.ui.sp_gross_margin.setValue(self.weights['GrossMargin'] * 1e2)
-        self.ui.sp_roic.setValue(self.weights['ROIC'] * 1e2 + self.weights['FCF'] * 1e2)
-        self.ui.sp_piotroski.setValue(self.weights['Piotroski'] * 1e2)
-        self.ui.sp_value.setValue(self.weights['Value'] * 1e2)
+        self.ui.sp_ca.setValue(self.parameters.weights['Revenues'] * 1e2)
+        self.ui.sp_debt.setValue(self.parameters.weights['Debt'] * 1e2)
+        self.ui.sp_buyback.setValue(self.parameters.weights['Buyback'] * 1e2)
+        self.ui.sp_gross_margin.setValue(self.parameters.weights['GrossMargin'] * 1e2)
+        self.ui.sp_roic.setValue(self.parameters.weights['ROIC'] * 1e2 + self.parameters.weights['FCF'] * 1e2)
+        self.ui.sp_piotroski.setValue(self.parameters.weights['Piotroski'] * 1e2)
+        self.ui.sp_value.setValue(self.parameters.weights['Value'] * 1e2)
 
-        self.ui.l_sum_weights.setText(f"{np.round(sum(self.weights.values()) * 1e2, decimals=2)} %")
+        self.ui.l_sum_weights.setText(f"{np.round(sum(self.parameters.weights.values()) * 1e2, decimals=2)} %")
 
-        self.ui.sp_start_year.setValue(self.start_year)
-        self.ui.sp_end_year.setValue(self.end_year)
+        self.ui.sp_start_year.setValue(self.parameters.start_year)
+        self.ui.sp_end_year.setValue(self.parameters.end_year)
 
-        self.ui.sb_nbe_monte_carlo.setValue(2500)
-        self.ui.sb_nb_stocks.setValue(20)
+        self.ui.sb_nbe_monte_carlo.setValue(self.parameters.nbe_monte_carlo)
+        self.ui.sb_nb_stocks.setValue(self.parameters.nbe_stocks)
 
         # Réinitialisation des tableaux d'affichage
         self.__clear_all_table_views()
 
     def __update_model_from_gui(self):
-        self.seuil_freq_select = self.ui.sb_seuil_freq_select.value()
-        self.taux_sans_risque = self.ui.sb_taux_sans_risque.value()
+        self.parameters.seuil_freq_select = self.ui.sb_seuil_freq_select.value()
+        self.parameters.taux_sans_risque = self.ui.sb_taux_sans_risque.value()
+
+        self.parameters.analysis.start_year = self.ui.sp_start_year.value()
+        self.parameters.analysis.end_year = self.ui.sp_end_year.value()
+
+        self.parameters.nbe_monte_carlo = self.ui.sb_nbe_monte_carlo.value()
+        self.parameters.nbe_stocks = self.ui.sb_nb_stocks.value()
 
     def __open_file(self):
         data_filepath = self.open_file()
@@ -486,37 +521,35 @@ class MainWindow(QMainWindow):
 
     def open_file(self) -> str:
         # Ouvre une boîte de dialogue pour choisir un fichier
-        file_path, _ = QFileDialog.getOpenFileName(
+        self.data_file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Sélectionner un fichier",
-            str(self.script_path.parent.parent / "data"),  # répertoire par défaut (vide = dossier courant)
+            str(self.parameters.script_path.parent.parent / "data"),  # répertoire par défaut (vide = dossier courant)
             "Fichiers Excel (*.xlsx);;Fichiers CSV (*.csv)"
         )
 
-        if Path(file_path).suffix.lower() == ".xlsx":
+        if Path(self.data_file_path).suffix.lower() == ".xlsx":
             # Chargement via ton ExcelLoader
-            self.loader = ExcelLoader(file_path)
-            self.analysis = Analysis(filepath=file_path)
+            self.parameters.analysis = Analysis(filepath=self.data_file_path)
             # QMessageBox.information(self, "Succès", "Fichier Excel chargé avec succès.")
 
-        elif Path(file_path).suffix.lower() == ".csv":
-            self.csv_data = pd.read_csv(file_path)
+        elif Path(self.data_file_path).suffix.lower() == ".csv":
+            self.csv_data = pd.read_csv(self.data_file_path)
             # QMessageBox.information(self, "Succès", "Fichier CSV chargé avec succès.")
 
         else:
             QMessageBox.warning(self, "Format non supporté",
-                                f"Extension {file_path.suffix} non reconnue.")
+                                f"Extension {self.data_file_path.suffix} non reconnue.")
 
         try:
             # Création du loader et de l’analyse
-            self.loader = ExcelLoader(file_path)
-            self.analysis = Analysis(filepath=file_path)
+            self.parameters.analysis = Analysis(filepath=self.data_file_path)
 
             QMessageBox.information(self, "Succès", "Fichier chargé avec succès.")
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Impossible de charger le fichier.\n{e}")
 
-        return file_path
+        return self.data_file_path
 
     def __open_dir(self):
         """Sélectionne le répertoire d'exportation"""
@@ -534,21 +567,31 @@ class MainWindow(QMainWindow):
                 self.ui.pb_export_results.setEnabled(True)
 
     def __run_analysis(self):
-        self.revenues_results = self.analysis.check_revenues_growth_and_stability()
-        self.gross_margin_results = self.analysis.check_gross_margin_growth_and_stability()
-        self.cfoa_results, self.groc_results = self.analysis.check_fcf_and_roic_gr()
-        self.buyback_results = self.analysis.check_shares_buyback()
-        self.piotroski_results, self.piotroski_results_reduced = self.analysis.compute_piotroski_score()
-        self.value_results, self.value_sector_stats, _ = self.analysis.find_cheapest_stocks(risk_fre_rate=0.045)
+        self.revenues_results = self.parameters.analysis.check_revenues_growth_and_stability()
+        self.gross_margin_results = self.parameters.analysis.check_gross_margin_growth_and_stability()
+        self.cfoa_results, self.groc_results = self.parameters.analysis.check_fcf_and_roic_gr()
+        self.buyback_results = self.parameters.analysis.check_shares_buyback()
+        self.piotroski_results, self.piotroski_results_reduced = self.parameters.analysis.compute_piotroski_score()
+        self.value_results, self.value_sector_stats, _ = self.parameters.analysis.find_cheapest_stocks(risk_free_rate=0.045)
 
-
-        if f"{self.end_year}" != self.ui.sp_end_year.value():
-            debt_ebit = (self.analysis.data_general[f'Total Debt {self.end_year}'] /
-                         self.analysis.data_general[f'EBIT {self.end_year}'])
+        if self.parameters.end_year != self.ui.sp_end_year.value():
+            debt_ebit = (self.parameters.analysis.data_general[f'Total Debt {self.parameters.end_year}'] /
+                         self.parameters.analysis.data_general[f'EBIT {self.parameters.end_year}'])
         else:
-            debt_ebit = self.analysis.data_general['Total Debt / EBITDA']
+            debt_ebit = self.parameters.analysis.data_general['Total Debt / EBITDA']
 
         self.debt_series = (debt_ebit.rank(pct=True, ascending=False) * 100).sort_values(ascending=False)
+
+        # Initialisation de la classe RobustFinancialLoader pour normaliser les données d'entrée avant d'être
+        # passées dans l'algorithme de sélection de variables robuste LASSO.
+        robust_financial_loader = RobustFinancialLoader([self.revenues_results,
+                                                         self.gross_margin_results,
+                                                         self.cfoa_results,
+                                                         self.groc_results,
+                                                         self.buyback_results,
+                                                         self.piotroski_results,
+                                                         self.value_results
+                                                         ])
 
         self.results_storage = {'Revenues': self.revenues_results,
                                 'GrossMargin': self.gross_margin_results,
@@ -594,8 +637,8 @@ class MainWindow(QMainWindow):
     def __make_quality_ranking(self):
         dfs = [self.results_storage[name] for name in MainWindow.QUALITY_FACTORS]
 
-        self.quality_weights_sum = sum([self.weights[name] for name in MainWindow.QUALITY_FACTORS])
-        new_quality_weights = [self.weights[name] / self.quality_weights_sum for name in MainWindow.QUALITY_FACTORS]
+        self.quality_weights_sum = sum([self.parameters.weights[name] for name in MainWindow.QUALITY_FACTORS])
+        new_quality_weights = [self.parameters.weights[name] / self.quality_weights_sum for name in MainWindow.QUALITY_FACTORS]
 
         # Trouver les index communs à tous les DataFrames
         common_index = reduce(lambda x, y: x.intersection(y), (df.index for df in dfs))
@@ -619,13 +662,13 @@ class MainWindow(QMainWindow):
 
     def __make_sensibility_analysis(self) -> pd.Series:
         threshold = self.ui.sb_seuil_freq_select.value()
-        sensitivity_results = monte_carlo_sensitivity_analysis(self.analysis,
+        sensitivity_results = monte_carlo_sensitivity_analysis(self.parameters,
                                                                num_simulations=self.ui.sb_nbe_monte_carlo.value())
 
         # Pondération du classement Quality par la fréquence de sélection dans le top X% après N simulations
         above_threshold_sel_freq = list(
             sensitivity_results[
-                sensitivity_results['selection_frequency'] > threshold].index)
+                sensitivity_results['selection_frequency'] > threshold*1e-2].index)
 
         # Soit on prend toutes les actions au-dessus d'un certain seuil
         if self.ui.rb_type_freq_selec_dur.isChecked():
@@ -642,14 +685,14 @@ class MainWindow(QMainWindow):
         dfs = [df.loc[common_index] for df in dfs]
 
         # Création du classement final (Value + Quality + Piotroski) basé sur le modèle factoriel ci-dessus.
-        self.factorial_model_results = (self.weights['Value'] * dfs[0] +
+        self.factorial_model_results = (self.parameters.weights['Value'] * dfs[0] +
                                    self.quality_weights_sum * dfs[1] +
-                                   self.weights['Piotroski'] * dfs[2]
+                                   self.parameters.weights['Piotroski'] * dfs[2]
                                    )
         self.factorial_model_results = self.factorial_model_results.sort_values(ascending=False)
         self.factorial_model_results.name = 'Factor Model Ranking'
 
-        factorial_model_sector_results = self.analysis.data_general['Sector'].loc[self.factorial_model_results.index]
+        factorial_model_sector_results = self.parameters.analysis.data_general['Sector'].loc[self.factorial_model_results.index]
         self.factorial_model_results = pd.DataFrame({"Factorial Model Score": self.factorial_model_results,
                                                   "Sector": factorial_model_sector_results})
 
@@ -658,14 +701,25 @@ class MainWindow(QMainWindow):
         top_20_sum = sum(self.factorial_model_results.iloc[:nb_stocks]['Factorial Model Score'].values)
         self.weights_allocation = self.factorial_model_results.iloc[:nb_stocks]['Factorial Model Score'].values / top_20_sum * 1e2
 
+        total_nbe_stocks = len(self.factorial_model_results.index.to_list())
+        allocation_series_weight = pd.Series(np.zeros(total_nbe_stocks), index=self.factorial_model_results.index)
+        allocation_series_amount = pd.Series(np.zeros(total_nbe_stocks), index=self.factorial_model_results.index)
+
+        allocation_series_weight.iloc[:nb_stocks] = self.weights_allocation
+        allocation_series_amount.iloc[:nb_stocks] = self.ui.sb_capital.value() * self.weights_allocation * 1e-2
+
+        self.factorial_model_results['Weights (%)'] = allocation_series_weight
+        self.factorial_model_results['Amount (€)'] = allocation_series_amount
+
         # Récupération des 20% meilleures actions seulement
         top_value_results_threshold = self.factorial_model_results['Factorial Model Score'].quantile(0.8)
         final_value_score_results = self.factorial_model_results[self.factorial_model_results['Factorial Model Score']
                                                                  > top_value_results_threshold]
-        final_value_sector_results = self.analysis.data_general['Sector'].loc[final_value_score_results.index]
+        final_value_sector_results = self.parameters.analysis.data_general['Sector'].loc[final_value_score_results.index]
 
-        self.final_value_score_results = pd.DataFrame({"Value Score": final_value_score_results['Factorial Model Score'],
-                                                  "Sector": final_value_sector_results})
+        self.final_value_score_results = pd.DataFrame({"Score": final_value_score_results['Factorial Model Score'],
+                                                       "Secteur": final_value_sector_results
+                                                       })
 
     def __show_graphics_window(self):
         """Affiche la fenêtre graphique avec la matrice de corrélation"""
@@ -808,6 +862,52 @@ class MainWindow(QMainWindow):
                         dfs=df_list,
                         sheet_names=df_list_names
                         )
+
+    def __run_backtest(self):
+        tickers = self.final_value_score_results.index.to_list()
+        start_date = f"{self.ui.sb_start_year_backtest.value()}-01-01"
+        end_date = f"{self.ui.sb_end_year_backtest.value()}-01-01"
+
+        # Initialisation
+        self.backtest_engine = PortfolioMetricsEngine(parameters=self.parameters,
+                                                      tickers_list=tickers,
+                                                      start_date=start_date,
+                                                      end_date=end_date
+                                                      )
+
+        # TODO : faire le backtest en se basant sur la date de début + 8 ans pour le classement
+        # 2016 - 2022 pour acheter de 2023 à 2024.
+        # 2017 - 2023 pour acheter de 2024 à 2025.
+        # Décaler d'1 an tout en stockant les résultats à chaque fois
+        # Peut-être faire un dataframe avec comme index les différentes années et en colonne les métriques
+
+        # Lancement du backtest
+        self.backtest_engine.compute_metrics(capital=self.ui.sb_capital.value(),
+                                             stock_weights=self.weights_allocation,
+                                             risk_free_rate=self.ui.sb_taux_sans_risque.value()
+                                             )
+
+        self.backtest_engine.compute_benchmark_metrics(is_US=True,
+                                                       risk_free_rate=self.ui.sb_taux_sans_risque.value()
+                                                       )
+
+    # def __compute_allocation(self) -> tuple[pd.Series, pd.Series]:
+    #     nbe_stocks = len(self.revenues_results.index.to_list())
+    #     allocation_series_weight = pd.Series(np.zeros(nbe_stocks), index=self.revenues_results.index)
+    #     allocation_series_amount = pd.Series(np.zeros(nbe_stocks), index=self.revenues_results.index)
+    #
+    #     wanted_nbe_stocks = int(self.ui.sb_nb_stocks.value())
+    #
+    #     alloc_sum = sum(self.final_value_score_results.iloc[:wanted_nbe_stocks]['Value Score'])
+    #     alloc_weights = self.final_value_score_results.iloc[:wanted_nbe_stocks]['Value Score'] / alloc_sum
+    #     amount_by_stock = self.ui.sb_capital.value() * alloc_weights
+    #
+    #     allocation_series_weight.iloc[:wanted_nbe_stocks] = alloc_weights
+    #     allocation_series_amount.iloc[:wanted_nbe_stocks] = amount_by_stock
+    #
+    #     return allocation_series_weight, allocation_series_amount
+
+
 
 
 if __name__ == "__main__":

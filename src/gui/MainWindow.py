@@ -18,16 +18,16 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QTransform)
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QDoubleSpinBox, QFrame,
     QGridLayout, QGroupBox, QHBoxLayout, QHeaderView,
-    QLabel, QLineEdit, QMainWindow, QPushButton,
-    QRadioButton, QSizePolicy, QSpacerItem, QSpinBox,
-    QSplitter, QTabWidget, QTableView, QVBoxLayout,
-    QWidget)
+    QLabel, QLayout, QLineEdit, QMainWindow,
+    QPushButton, QRadioButton, QSizePolicy, QSpacerItem,
+    QSpinBox, QSplitter, QTabWidget, QTableView,
+    QVBoxLayout, QWidget)
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(1228, 817)
+        MainWindow.resize(1201, 783)
         self.actiongo = QAction(MainWindow)
         self.actiongo.setObjectName(u"actiongo")
         self.centralwidget = QWidget(MainWindow)
@@ -67,6 +67,71 @@ class Ui_MainWindow(object):
         self.gb_sim_param.setSizePolicy(sizePolicy1)
         self.gridLayout_24 = QGridLayout(self.gb_sim_param)
         self.gridLayout_24.setObjectName(u"gridLayout_24")
+        self.line_2 = QFrame(self.gb_sim_param)
+        self.line_2.setObjectName(u"line_2")
+        self.line_2.setFrameShape(QFrame.Shape.HLine)
+        self.line_2.setFrameShadow(QFrame.Shadow.Sunken)
+
+        self.gridLayout_24.addWidget(self.line_2, 4, 0, 1, 4)
+
+        self.horizontalLayout_14 = QHBoxLayout()
+        self.horizontalLayout_14.setObjectName(u"horizontalLayout_14")
+        self.label_14 = QLabel(self.gb_sim_param)
+        self.label_14.setObjectName(u"label_14")
+
+        self.horizontalLayout_14.addWidget(self.label_14)
+
+        self.sp_start_year = QSpinBox(self.gb_sim_param)
+        self.sp_start_year.setObjectName(u"sp_start_year")
+        sizePolicy.setHeightForWidth(self.sp_start_year.sizePolicy().hasHeightForWidth())
+        self.sp_start_year.setSizePolicy(sizePolicy)
+        self.sp_start_year.setMinimum(1900)
+        self.sp_start_year.setMaximum(9999)
+        self.sp_start_year.setValue(2014)
+
+        self.horizontalLayout_14.addWidget(self.sp_start_year)
+
+
+        self.gridLayout_24.addLayout(self.horizontalLayout_14, 12, 1, 1, 1)
+
+        self.horizontalLayout_15 = QHBoxLayout()
+        self.horizontalLayout_15.setObjectName(u"horizontalLayout_15")
+        self.label_17 = QLabel(self.gb_sim_param)
+        self.label_17.setObjectName(u"label_17")
+
+        self.horizontalLayout_15.addWidget(self.label_17)
+
+        self.sp_end_year = QSpinBox(self.gb_sim_param)
+        self.sp_end_year.setObjectName(u"sp_end_year")
+        sizePolicy.setHeightForWidth(self.sp_end_year.sizePolicy().hasHeightForWidth())
+        self.sp_end_year.setSizePolicy(sizePolicy)
+        self.sp_end_year.setMinimum(1900)
+        self.sp_end_year.setMaximum(9999)
+        self.sp_end_year.setValue(2024)
+
+        self.horizontalLayout_15.addWidget(self.sp_end_year)
+
+
+        self.gridLayout_24.addLayout(self.horizontalLayout_15, 12, 3, 1, 1)
+
+        self.label_3 = QLabel(self.gb_sim_param)
+        self.label_3.setObjectName(u"label_3")
+
+        self.gridLayout_24.addWidget(self.label_3, 12, 0, 1, 1)
+
+        self.le_path_data_export = QLineEdit(self.gb_sim_param)
+        self.le_path_data_export.setObjectName(u"le_path_data_export")
+        self.le_path_data_export.setReadOnly(True)
+
+        self.gridLayout_24.addWidget(self.le_path_data_export, 7, 0, 1, 2)
+
+        self.line_6 = QFrame(self.gb_sim_param)
+        self.line_6.setObjectName(u"line_6")
+        self.line_6.setFrameShape(QFrame.Shape.HLine)
+        self.line_6.setFrameShadow(QFrame.Shadow.Sunken)
+
+        self.gridLayout_24.addWidget(self.line_6, 15, 0, 1, 4)
+
         self.horizontalLayout_2 = QHBoxLayout()
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
         self.label_4 = QLabel(self.gb_sim_param)
@@ -85,7 +150,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_2.addWidget(self.rb_type_freq_selec_doux)
 
 
-        self.gridLayout_24.addLayout(self.horizontalLayout_2, 0, 0, 1, 6)
+        self.gridLayout_24.addLayout(self.horizontalLayout_2, 0, 0, 1, 4)
 
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
@@ -103,174 +168,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout.addWidget(self.sb_seuil_freq_select)
 
 
-        self.gridLayout_24.addLayout(self.horizontalLayout, 1, 0, 1, 4)
-
-        self.line_3 = QFrame(self.gb_sim_param)
-        self.line_3.setObjectName(u"line_3")
-        self.line_3.setFrameShape(QFrame.Shape.HLine)
-        self.line_3.setFrameShadow(QFrame.Shadow.Sunken)
-
-        self.gridLayout_24.addWidget(self.line_3, 2, 0, 1, 8)
-
-        self.horizontalLayout_4 = QHBoxLayout()
-        self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
-        self.label_5 = QLabel(self.gb_sim_param)
-        self.label_5.setObjectName(u"label_5")
-
-        self.horizontalLayout_4.addWidget(self.label_5)
-
-        self.sb_taux_sans_risque = QDoubleSpinBox(self.gb_sim_param)
-        self.sb_taux_sans_risque.setObjectName(u"sb_taux_sans_risque")
-        self.sb_taux_sans_risque.setMaximum(10.000000000000000)
-        self.sb_taux_sans_risque.setSingleStep(0.100000000000000)
-        self.sb_taux_sans_risque.setValue(5.000000000000000)
-
-        self.horizontalLayout_4.addWidget(self.sb_taux_sans_risque)
-
-
-        self.gridLayout_24.addLayout(self.horizontalLayout_4, 3, 0, 1, 4)
-
-        self.line_2 = QFrame(self.gb_sim_param)
-        self.line_2.setObjectName(u"line_2")
-        self.line_2.setFrameShape(QFrame.Shape.HLine)
-        self.line_2.setFrameShadow(QFrame.Shadow.Sunken)
-
-        self.gridLayout_24.addWidget(self.line_2, 4, 0, 1, 8)
-
-        self.horizontalLayout_3 = QHBoxLayout()
-        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
-        self.label = QLabel(self.gb_sim_param)
-        self.label.setObjectName(u"label")
-
-        self.horizontalLayout_3.addWidget(self.label)
-
-        self.rb_export_results_yes = QRadioButton(self.gb_sim_param)
-        self.buttonGroup = QButtonGroup(MainWindow)
-        self.buttonGroup.setObjectName(u"buttonGroup")
-        self.buttonGroup.addButton(self.rb_export_results_yes)
-        self.rb_export_results_yes.setObjectName(u"rb_export_results_yes")
-
-        self.horizontalLayout_3.addWidget(self.rb_export_results_yes)
-
-        self.rb_export_results_no = QRadioButton(self.gb_sim_param)
-        self.buttonGroup.addButton(self.rb_export_results_no)
-        self.rb_export_results_no.setObjectName(u"rb_export_results_no")
-
-        self.horizontalLayout_3.addWidget(self.rb_export_results_no)
-
-
-        self.gridLayout_24.addLayout(self.horizontalLayout_3, 5, 0, 1, 4)
-
-        self.label_export_path = QLabel(self.gb_sim_param)
-        self.label_export_path.setObjectName(u"label_export_path")
-
-        self.gridLayout_24.addWidget(self.label_export_path, 6, 0, 1, 4)
-
-        self.pb_select_export_repo = QPushButton(self.gb_sim_param)
-        self.pb_select_export_repo.setObjectName(u"pb_select_export_repo")
-
-        self.gridLayout_24.addWidget(self.pb_select_export_repo, 6, 5, 1, 2)
-
-        self.le_path_data_export = QLineEdit(self.gb_sim_param)
-        self.le_path_data_export.setObjectName(u"le_path_data_export")
-        self.le_path_data_export.setReadOnly(True)
-
-        self.gridLayout_24.addWidget(self.le_path_data_export, 7, 0, 1, 2)
-
-        self.line = QFrame(self.gb_sim_param)
-        self.line.setObjectName(u"line")
-        self.line.setFrameShape(QFrame.Shape.HLine)
-        self.line.setFrameShadow(QFrame.Shadow.Sunken)
-
-        self.gridLayout_24.addWidget(self.line, 8, 0, 1, 8)
-
-        self.horizontalLayout_5 = QHBoxLayout()
-        self.horizontalLayout_5.setObjectName(u"horizontalLayout_5")
-        self.gridLayout = QGridLayout()
-        self.gridLayout.setObjectName(u"gridLayout")
-        self.label_7 = QLabel(self.gb_sim_param)
-        self.label_7.setObjectName(u"label_7")
-
-        self.gridLayout.addWidget(self.label_7, 0, 0, 1, 1)
-
-        self.sp_ca = QDoubleSpinBox(self.gb_sim_param)
-        self.sp_ca.setObjectName(u"sp_ca")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        sizePolicy2.setHorizontalStretch(0)
-        sizePolicy2.setVerticalStretch(0)
-        sizePolicy2.setHeightForWidth(self.sp_ca.sizePolicy().hasHeightForWidth())
-        self.sp_ca.setSizePolicy(sizePolicy2)
-        self.sp_ca.setMaximum(100.000000000000000)
-        self.sp_ca.setSingleStep(0.010000000000000)
-        self.sp_ca.setValue(5.000000000000000)
-
-        self.gridLayout.addWidget(self.sp_ca, 1, 0, 1, 1)
-
-
-        self.horizontalLayout_5.addLayout(self.gridLayout)
-
-        self.gridLayout_17 = QGridLayout()
-        self.gridLayout_17.setObjectName(u"gridLayout_17")
-        self.label_8 = QLabel(self.gb_sim_param)
-        self.label_8.setObjectName(u"label_8")
-
-        self.gridLayout_17.addWidget(self.label_8, 0, 0, 1, 1)
-
-        self.sp_gross_margin = QDoubleSpinBox(self.gb_sim_param)
-        self.sp_gross_margin.setObjectName(u"sp_gross_margin")
-        sizePolicy2.setHeightForWidth(self.sp_gross_margin.sizePolicy().hasHeightForWidth())
-        self.sp_gross_margin.setSizePolicy(sizePolicy2)
-        self.sp_gross_margin.setMaximum(100.000000000000000)
-        self.sp_gross_margin.setSingleStep(0.010000000000000)
-        self.sp_gross_margin.setValue(15.000000000000000)
-
-        self.gridLayout_17.addWidget(self.sp_gross_margin, 1, 0, 1, 1)
-
-
-        self.horizontalLayout_5.addLayout(self.gridLayout_17)
-
-        self.gridLayout_18 = QGridLayout()
-        self.gridLayout_18.setObjectName(u"gridLayout_18")
-        self.label_9 = QLabel(self.gb_sim_param)
-        self.label_9.setObjectName(u"label_9")
-
-        self.gridLayout_18.addWidget(self.label_9, 0, 0, 1, 1)
-
-        self.sp_roic = QDoubleSpinBox(self.gb_sim_param)
-        self.sp_roic.setObjectName(u"sp_roic")
-        sizePolicy2.setHeightForWidth(self.sp_roic.sizePolicy().hasHeightForWidth())
-        self.sp_roic.setSizePolicy(sizePolicy2)
-        self.sp_roic.setMaximum(100.000000000000000)
-        self.sp_roic.setSingleStep(0.010000000000000)
-        self.sp_roic.setValue(20.000000000000000)
-
-        self.gridLayout_18.addWidget(self.sp_roic, 1, 0, 1, 1)
-
-
-        self.horizontalLayout_5.addLayout(self.gridLayout_18)
-
-        self.gridLayout_19 = QGridLayout()
-        self.gridLayout_19.setObjectName(u"gridLayout_19")
-        self.label_12 = QLabel(self.gb_sim_param)
-        self.label_12.setObjectName(u"label_12")
-
-        self.gridLayout_19.addWidget(self.label_12, 0, 0, 1, 1)
-
-        self.sp_debt = QDoubleSpinBox(self.gb_sim_param)
-        self.sp_debt.setObjectName(u"sp_debt")
-        sizePolicy2.setHeightForWidth(self.sp_debt.sizePolicy().hasHeightForWidth())
-        self.sp_debt.setSizePolicy(sizePolicy2)
-        self.sp_debt.setMaximum(100.000000000000000)
-        self.sp_debt.setSingleStep(0.010000000000000)
-        self.sp_debt.setValue(5.000000000000000)
-
-        self.gridLayout_19.addWidget(self.sp_debt, 1, 0, 1, 1)
-
-
-        self.horizontalLayout_5.addLayout(self.gridLayout_19)
-
-
-        self.gridLayout_24.addLayout(self.horizontalLayout_5, 9, 0, 1, 7)
+        self.gridLayout_24.addLayout(self.horizontalLayout, 1, 0, 1, 3)
 
         self.horizontalLayout_7 = QHBoxLayout()
         self.horizontalLayout_7.setObjectName(u"horizontalLayout_7")
@@ -343,12 +241,13 @@ class Ui_MainWindow(object):
 
         self.l_sum_weights = QLabel(self.gb_sim_param)
         self.l_sum_weights.setObjectName(u"l_sum_weights")
-        sizePolicy3 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        sizePolicy3.setHorizontalStretch(0)
-        sizePolicy3.setVerticalStretch(0)
-        sizePolicy3.setHeightForWidth(self.l_sum_weights.sizePolicy().hasHeightForWidth())
-        self.l_sum_weights.setSizePolicy(sizePolicy3)
+        sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        sizePolicy2.setHorizontalStretch(0)
+        sizePolicy2.setVerticalStretch(0)
+        sizePolicy2.setHeightForWidth(self.l_sum_weights.sizePolicy().hasHeightForWidth())
+        self.l_sum_weights.setSizePolicy(sizePolicy2)
         self.l_sum_weights.setMidLineWidth(-3)
+        self.l_sum_weights.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.gridLayout_20.addWidget(self.l_sum_weights, 1, 0, 1, 1)
 
@@ -356,56 +255,28 @@ class Ui_MainWindow(object):
         self.horizontalLayout_7.addLayout(self.gridLayout_20)
 
 
-        self.gridLayout_24.addLayout(self.horizontalLayout_7, 10, 0, 1, 7)
-
-        self.line_4 = QFrame(self.gb_sim_param)
-        self.line_4.setObjectName(u"line_4")
-        self.line_4.setFrameShape(QFrame.Shape.HLine)
-        self.line_4.setFrameShadow(QFrame.Shadow.Sunken)
-
-        self.gridLayout_24.addWidget(self.line_4, 11, 0, 1, 8)
-
-        self.label_3 = QLabel(self.gb_sim_param)
-        self.label_3.setObjectName(u"label_3")
-
-        self.gridLayout_24.addWidget(self.label_3, 12, 0, 2, 1)
-
-        self.label_14 = QLabel(self.gb_sim_param)
-        self.label_14.setObjectName(u"label_14")
-
-        self.gridLayout_24.addWidget(self.label_14, 12, 1, 2, 1)
-
-        self.sp_start_year = QSpinBox(self.gb_sim_param)
-        self.sp_start_year.setObjectName(u"sp_start_year")
-        sizePolicy.setHeightForWidth(self.sp_start_year.sizePolicy().hasHeightForWidth())
-        self.sp_start_year.setSizePolicy(sizePolicy)
-        self.sp_start_year.setMinimum(1900)
-        self.sp_start_year.setMaximum(9999)
-        self.sp_start_year.setValue(2014)
-
-        self.gridLayout_24.addWidget(self.sp_start_year, 12, 3, 2, 1)
-
-        self.label_17 = QLabel(self.gb_sim_param)
-        self.label_17.setObjectName(u"label_17")
-
-        self.gridLayout_24.addWidget(self.label_17, 12, 4, 2, 1)
-
-        self.sp_end_year = QSpinBox(self.gb_sim_param)
-        self.sp_end_year.setObjectName(u"sp_end_year")
-        sizePolicy.setHeightForWidth(self.sp_end_year.sizePolicy().hasHeightForWidth())
-        self.sp_end_year.setSizePolicy(sizePolicy)
-        self.sp_end_year.setMinimum(1900)
-        self.sp_end_year.setMaximum(9999)
-        self.sp_end_year.setValue(2024)
-
-        self.gridLayout_24.addWidget(self.sp_end_year, 12, 5, 2, 2)
+        self.gridLayout_24.addLayout(self.horizontalLayout_7, 10, 0, 1, 4)
 
         self.line_5 = QFrame(self.gb_sim_param)
         self.line_5.setObjectName(u"line_5")
         self.line_5.setFrameShape(QFrame.Shape.HLine)
         self.line_5.setFrameShadow(QFrame.Shadow.Sunken)
 
-        self.gridLayout_24.addWidget(self.line_5, 14, 0, 2, 8)
+        self.gridLayout_24.addWidget(self.line_5, 13, 0, 1, 4)
+
+        self.line = QFrame(self.gb_sim_param)
+        self.line.setObjectName(u"line")
+        self.line.setFrameShape(QFrame.Shape.HLine)
+        self.line.setFrameShadow(QFrame.Shadow.Sunken)
+
+        self.gridLayout_24.addWidget(self.line, 8, 0, 1, 4)
+
+        self.horizontalLayout_13 = QHBoxLayout()
+        self.horizontalLayout_13.setObjectName(u"horizontalLayout_13")
+        self.label_15 = QLabel(self.gb_sim_param)
+        self.label_15.setObjectName(u"label_15")
+
+        self.horizontalLayout_13.addWidget(self.label_15)
 
         self.sb_nbe_monte_carlo = QSpinBox(self.gb_sim_param)
         self.sb_nbe_monte_carlo.setObjectName(u"sb_nbe_monte_carlo")
@@ -416,24 +287,148 @@ class Ui_MainWindow(object):
         self.sb_nbe_monte_carlo.setSingleStep(100)
         self.sb_nbe_monte_carlo.setValue(2500)
 
-        self.gridLayout_24.addWidget(self.sb_nbe_monte_carlo, 15, 6, 2, 1)
+        self.horizontalLayout_13.addWidget(self.sb_nbe_monte_carlo)
 
-        self.label_15 = QLabel(self.gb_sim_param)
-        self.label_15.setObjectName(u"label_15")
+        self.horizontalSpacer_7 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        self.gridLayout_24.addWidget(self.label_15, 16, 0, 1, 6)
+        self.horizontalLayout_13.addItem(self.horizontalSpacer_7)
 
-        self.line_6 = QFrame(self.gb_sim_param)
-        self.line_6.setObjectName(u"line_6")
-        self.line_6.setFrameShape(QFrame.Shape.HLine)
-        self.line_6.setFrameShadow(QFrame.Shadow.Sunken)
 
-        self.gridLayout_24.addWidget(self.line_6, 17, 0, 1, 8)
+        self.gridLayout_24.addLayout(self.horizontalLayout_13, 14, 0, 1, 4)
 
+        self.horizontalLayout_5 = QHBoxLayout()
+        self.horizontalLayout_5.setObjectName(u"horizontalLayout_5")
+        self.gridLayout = QGridLayout()
+        self.gridLayout.setObjectName(u"gridLayout")
+        self.label_7 = QLabel(self.gb_sim_param)
+        self.label_7.setObjectName(u"label_7")
+
+        self.gridLayout.addWidget(self.label_7, 0, 0, 1, 1)
+
+        self.sp_ca = QDoubleSpinBox(self.gb_sim_param)
+        self.sp_ca.setObjectName(u"sp_ca")
+        sizePolicy3 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        sizePolicy3.setHorizontalStretch(0)
+        sizePolicy3.setVerticalStretch(0)
+        sizePolicy3.setHeightForWidth(self.sp_ca.sizePolicy().hasHeightForWidth())
+        self.sp_ca.setSizePolicy(sizePolicy3)
+        self.sp_ca.setMaximum(100.000000000000000)
+        self.sp_ca.setSingleStep(0.010000000000000)
+        self.sp_ca.setValue(5.000000000000000)
+
+        self.gridLayout.addWidget(self.sp_ca, 1, 0, 1, 1)
+
+
+        self.horizontalLayout_5.addLayout(self.gridLayout)
+
+        self.gridLayout_17 = QGridLayout()
+        self.gridLayout_17.setObjectName(u"gridLayout_17")
+        self.label_8 = QLabel(self.gb_sim_param)
+        self.label_8.setObjectName(u"label_8")
+
+        self.gridLayout_17.addWidget(self.label_8, 0, 0, 1, 1)
+
+        self.sp_gross_margin = QDoubleSpinBox(self.gb_sim_param)
+        self.sp_gross_margin.setObjectName(u"sp_gross_margin")
+        sizePolicy3.setHeightForWidth(self.sp_gross_margin.sizePolicy().hasHeightForWidth())
+        self.sp_gross_margin.setSizePolicy(sizePolicy3)
+        self.sp_gross_margin.setMaximum(100.000000000000000)
+        self.sp_gross_margin.setSingleStep(0.010000000000000)
+        self.sp_gross_margin.setValue(15.000000000000000)
+
+        self.gridLayout_17.addWidget(self.sp_gross_margin, 1, 0, 1, 1)
+
+
+        self.horizontalLayout_5.addLayout(self.gridLayout_17)
+
+        self.gridLayout_18 = QGridLayout()
+        self.gridLayout_18.setObjectName(u"gridLayout_18")
+        self.label_9 = QLabel(self.gb_sim_param)
+        self.label_9.setObjectName(u"label_9")
+
+        self.gridLayout_18.addWidget(self.label_9, 0, 0, 1, 1)
+
+        self.sp_roic = QDoubleSpinBox(self.gb_sim_param)
+        self.sp_roic.setObjectName(u"sp_roic")
+        sizePolicy3.setHeightForWidth(self.sp_roic.sizePolicy().hasHeightForWidth())
+        self.sp_roic.setSizePolicy(sizePolicy3)
+        self.sp_roic.setMaximum(100.000000000000000)
+        self.sp_roic.setSingleStep(0.010000000000000)
+        self.sp_roic.setValue(20.000000000000000)
+
+        self.gridLayout_18.addWidget(self.sp_roic, 1, 0, 1, 1)
+
+
+        self.horizontalLayout_5.addLayout(self.gridLayout_18)
+
+        self.gridLayout_19 = QGridLayout()
+        self.gridLayout_19.setObjectName(u"gridLayout_19")
+        self.label_12 = QLabel(self.gb_sim_param)
+        self.label_12.setObjectName(u"label_12")
+
+        self.gridLayout_19.addWidget(self.label_12, 0, 0, 1, 1)
+
+        self.sp_debt = QDoubleSpinBox(self.gb_sim_param)
+        self.sp_debt.setObjectName(u"sp_debt")
+        sizePolicy3.setHeightForWidth(self.sp_debt.sizePolicy().hasHeightForWidth())
+        self.sp_debt.setSizePolicy(sizePolicy3)
+        self.sp_debt.setMaximum(100.000000000000000)
+        self.sp_debt.setSingleStep(0.010000000000000)
+        self.sp_debt.setValue(5.000000000000000)
+
+        self.gridLayout_19.addWidget(self.sp_debt, 1, 0, 1, 1)
+
+
+        self.horizontalLayout_5.addLayout(self.gridLayout_19)
+
+
+        self.gridLayout_24.addLayout(self.horizontalLayout_5, 9, 0, 1, 4)
+
+        self.horizontalLayout_3 = QHBoxLayout()
+        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
+        self.label = QLabel(self.gb_sim_param)
+        self.label.setObjectName(u"label")
+
+        self.horizontalLayout_3.addWidget(self.label)
+
+        self.rb_export_results_yes = QRadioButton(self.gb_sim_param)
+        self.buttonGroup = QButtonGroup(MainWindow)
+        self.buttonGroup.setObjectName(u"buttonGroup")
+        self.buttonGroup.addButton(self.rb_export_results_yes)
+        self.rb_export_results_yes.setObjectName(u"rb_export_results_yes")
+
+        self.horizontalLayout_3.addWidget(self.rb_export_results_yes)
+
+        self.rb_export_results_no = QRadioButton(self.gb_sim_param)
+        self.buttonGroup.addButton(self.rb_export_results_no)
+        self.rb_export_results_no.setObjectName(u"rb_export_results_no")
+
+        self.horizontalLayout_3.addWidget(self.rb_export_results_no)
+
+
+        self.gridLayout_24.addLayout(self.horizontalLayout_3, 5, 0, 1, 2)
+
+        self.horizontalLayout_11 = QHBoxLayout()
+        self.horizontalLayout_11.setObjectName(u"horizontalLayout_11")
+        self.label_export_path = QLabel(self.gb_sim_param)
+        self.label_export_path.setObjectName(u"label_export_path")
+
+        self.horizontalLayout_11.addWidget(self.label_export_path)
+
+        self.pb_select_export_repo = QPushButton(self.gb_sim_param)
+        self.pb_select_export_repo.setObjectName(u"pb_select_export_repo")
+
+        self.horizontalLayout_11.addWidget(self.pb_select_export_repo)
+
+
+        self.gridLayout_24.addLayout(self.horizontalLayout_11, 6, 0, 1, 4)
+
+        self.horizontalLayout_12 = QHBoxLayout()
+        self.horizontalLayout_12.setObjectName(u"horizontalLayout_12")
         self.label_16 = QLabel(self.gb_sim_param)
         self.label_16.setObjectName(u"label_16")
 
-        self.gridLayout_24.addWidget(self.label_16, 18, 0, 2, 2)
+        self.horizontalLayout_12.addWidget(self.label_16)
 
         self.sb_nb_stocks = QSpinBox(self.gb_sim_param)
         self.sb_nb_stocks.setObjectName(u"sb_nb_stocks")
@@ -444,58 +439,139 @@ class Ui_MainWindow(object):
         self.sb_nb_stocks.setSingleStep(1)
         self.sb_nb_stocks.setValue(20)
 
-        self.gridLayout_24.addWidget(self.sb_nb_stocks, 19, 2, 1, 2)
+        self.horizontalLayout_12.addWidget(self.sb_nb_stocks)
 
-        self.horizontalLayout_6 = QHBoxLayout()
-        self.horizontalLayout_6.setObjectName(u"horizontalLayout_6")
-        self.horizontalSpacer_3 = QSpacerItem(108, 20, QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_6 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        self.horizontalLayout_6.addItem(self.horizontalSpacer_3)
-
-        self.pb_run = QPushButton(self.gb_sim_param)
-        self.pb_run.setObjectName(u"pb_run")
-        sizePolicy2.setHeightForWidth(self.pb_run.sizePolicy().hasHeightForWidth())
-        self.pb_run.setSizePolicy(sizePolicy2)
-
-        self.horizontalLayout_6.addWidget(self.pb_run)
-
-        self.pb_reset = QPushButton(self.gb_sim_param)
-        self.pb_reset.setObjectName(u"pb_reset")
-        sizePolicy2.setHeightForWidth(self.pb_reset.sizePolicy().hasHeightForWidth())
-        self.pb_reset.setSizePolicy(sizePolicy2)
-
-        self.horizontalLayout_6.addWidget(self.pb_reset)
-
-        self.pb_export_results = QPushButton(self.gb_sim_param)
-        self.pb_export_results.setObjectName(u"pb_export_results")
-        sizePolicy2.setHeightForWidth(self.pb_export_results.sizePolicy().hasHeightForWidth())
-        self.pb_export_results.setSizePolicy(sizePolicy2)
-
-        self.horizontalLayout_6.addWidget(self.pb_export_results)
+        self.horizontalLayout_12.addItem(self.horizontalSpacer_6)
 
 
-        self.gridLayout_24.addLayout(self.horizontalLayout_6, 20, 0, 1, 7)
+        self.gridLayout_24.addLayout(self.horizontalLayout_12, 16, 0, 1, 3)
+
+        self.line_3 = QFrame(self.gb_sim_param)
+        self.line_3.setObjectName(u"line_3")
+        self.line_3.setFrameShape(QFrame.Shape.HLine)
+        self.line_3.setFrameShadow(QFrame.Shadow.Sunken)
+
+        self.gridLayout_24.addWidget(self.line_3, 2, 0, 1, 4)
+
+        self.horizontalLayout_4 = QHBoxLayout()
+        self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
+        self.label_5 = QLabel(self.gb_sim_param)
+        self.label_5.setObjectName(u"label_5")
+
+        self.horizontalLayout_4.addWidget(self.label_5)
+
+        self.sb_taux_sans_risque = QDoubleSpinBox(self.gb_sim_param)
+        self.sb_taux_sans_risque.setObjectName(u"sb_taux_sans_risque")
+        self.sb_taux_sans_risque.setMaximum(10.000000000000000)
+        self.sb_taux_sans_risque.setSingleStep(0.100000000000000)
+        self.sb_taux_sans_risque.setValue(5.000000000000000)
+
+        self.horizontalLayout_4.addWidget(self.sb_taux_sans_risque)
+
+
+        self.gridLayout_24.addLayout(self.horizontalLayout_4, 3, 0, 1, 2)
+
+        self.line_4 = QFrame(self.gb_sim_param)
+        self.line_4.setObjectName(u"line_4")
+        self.line_4.setFrameShape(QFrame.Shape.HLine)
+        self.line_4.setFrameShadow(QFrame.Shadow.Sunken)
+
+        self.gridLayout_24.addWidget(self.line_4, 11, 0, 1, 4)
 
 
         self.verticalLayout.addWidget(self.gb_sim_param)
 
-        self.verticalSpacer = QSpacerItem(154, 46, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        self.gb_backtest = QGroupBox(self.widget)
+        self.gb_backtest.setObjectName(u"gb_backtest")
+        self.gridLayout_2 = QGridLayout(self.gb_backtest)
+        self.gridLayout_2.setObjectName(u"gridLayout_2")
+        self.horizontalLayout_10 = QHBoxLayout()
+        self.horizontalLayout_10.setObjectName(u"horizontalLayout_10")
+        self.label_18 = QLabel(self.gb_backtest)
+        self.label_18.setObjectName(u"label_18")
+        sizePolicy1.setHeightForWidth(self.label_18.sizePolicy().hasHeightForWidth())
+        self.label_18.setSizePolicy(sizePolicy1)
+
+        self.horizontalLayout_10.addWidget(self.label_18)
+
+        self.sb_capital = QDoubleSpinBox(self.gb_backtest)
+        self.sb_capital.setObjectName(u"sb_capital")
+        sizePolicy4 = QSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
+        sizePolicy4.setHorizontalStretch(0)
+        sizePolicy4.setVerticalStretch(0)
+        sizePolicy4.setHeightForWidth(self.sb_capital.sizePolicy().hasHeightForWidth())
+        self.sb_capital.setSizePolicy(sizePolicy4)
+        self.sb_capital.setMinimum(1.000000000000000)
+        self.sb_capital.setMaximum(1000000.000000000000000)
+        self.sb_capital.setSingleStep(500.000000000000000)
+        self.sb_capital.setValue(5000.000000000000000)
+
+        self.horizontalLayout_10.addWidget(self.sb_capital)
+
+
+        self.gridLayout_2.addLayout(self.horizontalLayout_10, 0, 0, 1, 1)
+
+        self.horizontalLayout_8 = QHBoxLayout()
+        self.horizontalLayout_8.setObjectName(u"horizontalLayout_8")
+        self.label_20 = QLabel(self.gb_backtest)
+        self.label_20.setObjectName(u"label_20")
+        sizePolicy1.setHeightForWidth(self.label_20.sizePolicy().hasHeightForWidth())
+        self.label_20.setSizePolicy(sizePolicy1)
+
+        self.horizontalLayout_8.addWidget(self.label_20)
+
+        self.sb_start_year_backtest = QSpinBox(self.gb_backtest)
+        self.sb_start_year_backtest.setObjectName(u"sb_start_year_backtest")
+        sizePolicy4.setHeightForWidth(self.sb_start_year_backtest.sizePolicy().hasHeightForWidth())
+        self.sb_start_year_backtest.setSizePolicy(sizePolicy4)
+        self.sb_start_year_backtest.setMinimum(1900)
+        self.sb_start_year_backtest.setMaximum(9999)
+        self.sb_start_year_backtest.setValue(2014)
+
+        self.horizontalLayout_8.addWidget(self.sb_start_year_backtest)
+
+
+        self.gridLayout_2.addLayout(self.horizontalLayout_8, 0, 1, 1, 1)
+
+        self.horizontalLayout_9 = QHBoxLayout()
+        self.horizontalLayout_9.setObjectName(u"horizontalLayout_9")
+        self.label_19 = QLabel(self.gb_backtest)
+        self.label_19.setObjectName(u"label_19")
+        sizePolicy1.setHeightForWidth(self.label_19.sizePolicy().hasHeightForWidth())
+        self.label_19.setSizePolicy(sizePolicy1)
+
+        self.horizontalLayout_9.addWidget(self.label_19)
+
+        self.sb_end_year_backtest = QSpinBox(self.gb_backtest)
+        self.sb_end_year_backtest.setObjectName(u"sb_end_year_backtest")
+        sizePolicy4.setHeightForWidth(self.sb_end_year_backtest.sizePolicy().hasHeightForWidth())
+        self.sb_end_year_backtest.setSizePolicy(sizePolicy4)
+        self.sb_end_year_backtest.setMinimum(1900)
+        self.sb_end_year_backtest.setMaximum(9999)
+        self.sb_end_year_backtest.setValue(2025)
+
+        self.horizontalLayout_9.addWidget(self.sb_end_year_backtest)
+
+
+        self.gridLayout_2.addLayout(self.horizontalLayout_9, 0, 2, 1, 1)
+
+
+        self.verticalLayout.addWidget(self.gb_backtest)
+
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
         self.verticalLayout.addItem(self.verticalSpacer)
 
         self.splitter.addWidget(self.widget)
-        self.layoutWidget = QWidget(self.splitter)
-        self.layoutWidget.setObjectName(u"layoutWidget")
-        self.gridLayout_2 = QGridLayout(self.layoutWidget)
-        self.gridLayout_2.setObjectName(u"gridLayout_2")
-        self.gridLayout_2.setContentsMargins(0, 0, 0, 0)
-        self.tw_results = QTabWidget(self.layoutWidget)
+        self.tw_results = QTabWidget(self.splitter)
         self.tw_results.setObjectName(u"tw_results")
-        sizePolicy4 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        sizePolicy4.setHorizontalStretch(0)
-        sizePolicy4.setVerticalStretch(0)
-        sizePolicy4.setHeightForWidth(self.tw_results.sizePolicy().hasHeightForWidth())
-        self.tw_results.setSizePolicy(sizePolicy4)
+        sizePolicy5 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        sizePolicy5.setHorizontalStretch(0)
+        sizePolicy5.setVerticalStretch(0)
+        sizePolicy5.setHeightForWidth(self.tw_results.sizePolicy().hasHeightForWidth())
+        self.tw_results.setSizePolicy(sizePolicy5)
         self.tab_final_ranking = QWidget()
         self.tab_final_ranking.setObjectName(u"tab_final_ranking")
         self.gridLayout_3 = QGridLayout(self.tab_final_ranking)
@@ -626,23 +702,58 @@ class Ui_MainWindow(object):
         self.gridLayout_15.addWidget(self.tableView_robust_quality, 0, 0, 1, 1)
 
         self.tw_results.addTab(self.tab_robust_quality, "")
-
-        self.gridLayout_2.addWidget(self.tw_results, 0, 0, 1, 2)
-
-        self.horizontalSpacer_2 = QSpacerItem(378, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.gridLayout_2.addItem(self.horizontalSpacer_2, 1, 0, 1, 1)
-
-        self.pb_show_graphics_window = QPushButton(self.layoutWidget)
-        self.pb_show_graphics_window.setObjectName(u"pb_show_graphics_window")
-        sizePolicy2.setHeightForWidth(self.pb_show_graphics_window.sizePolicy().hasHeightForWidth())
-        self.pb_show_graphics_window.setSizePolicy(sizePolicy2)
-
-        self.gridLayout_2.addWidget(self.pb_show_graphics_window, 1, 1, 1, 1)
-
-        self.splitter.addWidget(self.layoutWidget)
+        self.splitter.addWidget(self.tw_results)
 
         self.gridLayout_16.addWidget(self.splitter, 0, 0, 1, 1)
+
+        self.horizontalLayout_6 = QHBoxLayout()
+        self.horizontalLayout_6.setSpacing(5)
+        self.horizontalLayout_6.setObjectName(u"horizontalLayout_6")
+        self.horizontalLayout_6.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
+        self.pb_run = QPushButton(self.centralwidget)
+        self.pb_run.setObjectName(u"pb_run")
+        sizePolicy3.setHeightForWidth(self.pb_run.sizePolicy().hasHeightForWidth())
+        self.pb_run.setSizePolicy(sizePolicy3)
+
+        self.horizontalLayout_6.addWidget(self.pb_run)
+
+        self.pb_run_backtest = QPushButton(self.centralwidget)
+        self.pb_run_backtest.setObjectName(u"pb_run_backtest")
+
+        self.horizontalLayout_6.addWidget(self.pb_run_backtest)
+
+        self.pb_export_results = QPushButton(self.centralwidget)
+        self.pb_export_results.setObjectName(u"pb_export_results")
+        sizePolicy3.setHeightForWidth(self.pb_export_results.sizePolicy().hasHeightForWidth())
+        self.pb_export_results.setSizePolicy(sizePolicy3)
+
+        self.horizontalLayout_6.addWidget(self.pb_export_results)
+
+        self.pb_reset = QPushButton(self.centralwidget)
+        self.pb_reset.setObjectName(u"pb_reset")
+        sizePolicy3.setHeightForWidth(self.pb_reset.sizePolicy().hasHeightForWidth())
+        self.pb_reset.setSizePolicy(sizePolicy3)
+
+        self.horizontalLayout_6.addWidget(self.pb_reset)
+
+        self.horizontalSpacer_2 = QSpacerItem(228, 21, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_6.addItem(self.horizontalSpacer_2)
+
+        self.pb_show_backtest_results = QPushButton(self.centralwidget)
+        self.pb_show_backtest_results.setObjectName(u"pb_show_backtest_results")
+
+        self.horizontalLayout_6.addWidget(self.pb_show_backtest_results)
+
+        self.pb_show_correlation_window = QPushButton(self.centralwidget)
+        self.pb_show_correlation_window.setObjectName(u"pb_show_correlation_window")
+        sizePolicy3.setHeightForWidth(self.pb_show_correlation_window.sizePolicy().hasHeightForWidth())
+        self.pb_show_correlation_window.setSizePolicy(sizePolicy3)
+
+        self.horizontalLayout_6.addWidget(self.pb_show_correlation_window)
+
+
+        self.gridLayout_16.addLayout(self.horizontalLayout_6, 1, 0, 1, 1)
 
         MainWindow.setCentralWidget(self.centralwidget)
 
@@ -659,26 +770,14 @@ class Ui_MainWindow(object):
         self.actiongo.setText(QCoreApplication.translate("MainWindow", u"go", None))
         self.pb_import_data.setText(QCoreApplication.translate("MainWindow", u"Importation des donn\u00e9es", None))
         self.gb_sim_param.setTitle(QCoreApplication.translate("MainWindow", u"Param\u00e8tres de simulation", None))
+        self.label_14.setText(QCoreApplication.translate("MainWindow", u"D\u00e9but", None))
+        self.label_17.setText(QCoreApplication.translate("MainWindow", u"Fin", None))
+        self.label_3.setText(QCoreApplication.translate("MainWindow", u"P\u00e9riode d'analyse :", None))
         self.label_4.setText(QCoreApplication.translate("MainWindow", u"Type de seuil pour la fr\u00e9quence de s\u00e9lections", None))
         self.rb_type_freq_selec_dur.setText(QCoreApplication.translate("MainWindow", u"Dur", None))
         self.rb_type_freq_selec_doux.setText(QCoreApplication.translate("MainWindow", u"Doux", None))
         self.label_2.setText(QCoreApplication.translate("MainWindow", u"Seuil de fr\u00e9quence de s\u00e9lections", None))
         self.sb_seuil_freq_select.setSuffix(QCoreApplication.translate("MainWindow", u" %", None))
-        self.label_5.setText(QCoreApplication.translate("MainWindow", u"Taux sans risque", None))
-        self.sb_taux_sans_risque.setSuffix(QCoreApplication.translate("MainWindow", u" %", None))
-        self.label.setText(QCoreApplication.translate("MainWindow", u"Exporter les r\u00e9sultats", None))
-        self.rb_export_results_yes.setText(QCoreApplication.translate("MainWindow", u"Oui", None))
-        self.rb_export_results_no.setText(QCoreApplication.translate("MainWindow", u"Non", None))
-        self.label_export_path.setText(QCoreApplication.translate("MainWindow", u"R\u00e9pertoire d'exportation des r\u00e9sultats :", None))
-        self.pb_select_export_repo.setText(QCoreApplication.translate("MainWindow", u"S\u00e9lection du r\u00e9pertoire", None))
-        self.label_7.setText(QCoreApplication.translate("MainWindow", u"Chiffre d'Affaires", None))
-        self.sp_ca.setSuffix(QCoreApplication.translate("MainWindow", u"%", None))
-        self.label_8.setText(QCoreApplication.translate("MainWindow", u"Marges brutes", None))
-        self.sp_gross_margin.setSuffix(QCoreApplication.translate("MainWindow", u"%", None))
-        self.label_9.setText(QCoreApplication.translate("MainWindow", u"ROIC et FCF", None))
-        self.sp_roic.setSuffix(QCoreApplication.translate("MainWindow", u"%", None))
-        self.label_12.setText(QCoreApplication.translate("MainWindow", u"Endettement", None))
-        self.sp_debt.setSuffix(QCoreApplication.translate("MainWindow", u"%", None))
         self.label_10.setText(QCoreApplication.translate("MainWindow", u"Piotroski", None))
         self.sp_piotroski.setSuffix(QCoreApplication.translate("MainWindow", u"%", None))
         self.label_11.setText(QCoreApplication.translate("MainWindow", u"Rachat d'actions", None))
@@ -687,14 +786,28 @@ class Ui_MainWindow(object):
         self.sp_value.setSuffix(QCoreApplication.translate("MainWindow", u"%", None))
         self.label_13.setText(QCoreApplication.translate("MainWindow", u"Somme des poids", None))
         self.l_sum_weights.setText("")
-        self.label_3.setText(QCoreApplication.translate("MainWindow", u"P\u00e9riode d'analyse :", None))
-        self.label_14.setText(QCoreApplication.translate("MainWindow", u"D\u00e9but", None))
-        self.label_17.setText(QCoreApplication.translate("MainWindow", u"- Fin", None))
-        self.label_15.setText(QCoreApplication.translate("MainWindow", u"Nombre de simulations pour l'analyse de sensibilit\u00e9 Monte-Carlo :", None))
+        self.label_15.setText(QCoreApplication.translate("MainWindow", u"Nombre de simulations pour l'analyse de sensibilit\u00e9 :", None))
+        self.label_7.setText(QCoreApplication.translate("MainWindow", u"Chiffre d'Affaires", None))
+        self.sp_ca.setSuffix(QCoreApplication.translate("MainWindow", u"%", None))
+        self.label_8.setText(QCoreApplication.translate("MainWindow", u"Marges brutes", None))
+        self.sp_gross_margin.setSuffix(QCoreApplication.translate("MainWindow", u"%", None))
+        self.label_9.setText(QCoreApplication.translate("MainWindow", u"ROIC et FCF", None))
+        self.sp_roic.setSuffix(QCoreApplication.translate("MainWindow", u"%", None))
+        self.label_12.setText(QCoreApplication.translate("MainWindow", u"Endettement", None))
+        self.sp_debt.setSuffix(QCoreApplication.translate("MainWindow", u"%", None))
+        self.label.setText(QCoreApplication.translate("MainWindow", u"Exporter les r\u00e9sultats", None))
+        self.rb_export_results_yes.setText(QCoreApplication.translate("MainWindow", u"Oui", None))
+        self.rb_export_results_no.setText(QCoreApplication.translate("MainWindow", u"Non", None))
+        self.label_export_path.setText(QCoreApplication.translate("MainWindow", u"R\u00e9pertoire d'exportation des r\u00e9sultats :", None))
+        self.pb_select_export_repo.setText(QCoreApplication.translate("MainWindow", u"S\u00e9lection du r\u00e9pertoire", None))
         self.label_16.setText(QCoreApplication.translate("MainWindow", u"Nombre d'actions souhait\u00e9 :", None))
-        self.pb_run.setText(QCoreApplication.translate("MainWindow", u"Lancer les calculs", None))
-        self.pb_reset.setText(QCoreApplication.translate("MainWindow", u"R\u00e9initialiser", None))
-        self.pb_export_results.setText(QCoreApplication.translate("MainWindow", u"Exporter les r\u00e9sultats", None))
+        self.label_5.setText(QCoreApplication.translate("MainWindow", u"Taux sans risque", None))
+        self.sb_taux_sans_risque.setSuffix(QCoreApplication.translate("MainWindow", u" %", None))
+        self.gb_backtest.setTitle(QCoreApplication.translate("MainWindow", u"Param\u00e8tres de backtest", None))
+        self.label_18.setText(QCoreApplication.translate("MainWindow", u"Capital initial :", None))
+        self.sb_capital.setSuffix(QCoreApplication.translate("MainWindow", u" \u20ac", None))
+        self.label_20.setText(QCoreApplication.translate("MainWindow", u"D\u00e9but :", None))
+        self.label_19.setText(QCoreApplication.translate("MainWindow", u"Fin :", None))
         self.tw_results.setTabText(self.tw_results.indexOf(self.tab_final_ranking), QCoreApplication.translate("MainWindow", u"Classement final", None))
         self.tw_results.setTabText(self.tw_results.indexOf(self.tab_ranking_detailed), QCoreApplication.translate("MainWindow", u"Classement d\u00e9taill\u00e9", None))
         self.tw_results.setTabText(self.tw_results.indexOf(self.tab_revenues), QCoreApplication.translate("MainWindow", u"Chiffre d'Affaires", None))
@@ -708,6 +821,11 @@ class Ui_MainWindow(object):
         self.tw_results.setTabText(self.tw_results.indexOf(self.tab_quality), QCoreApplication.translate("MainWindow", u"Qualit\u00e9", None))
         self.tw_results.setTabText(self.tw_results.indexOf(self.tab_sensibility_analysis), QCoreApplication.translate("MainWindow", u"Analyse de sensibilit\u00e9", None))
         self.tw_results.setTabText(self.tw_results.indexOf(self.tab_robust_quality), QCoreApplication.translate("MainWindow", u"Qualit\u00e9 Robuste", None))
-        self.pb_show_graphics_window.setText(QCoreApplication.translate("MainWindow", u"Visualiser les graphiques", None))
+        self.pb_run.setText(QCoreApplication.translate("MainWindow", u"Lancer les calculs", None))
+        self.pb_run_backtest.setText(QCoreApplication.translate("MainWindow", u"Lancer le backtest", None))
+        self.pb_export_results.setText(QCoreApplication.translate("MainWindow", u"Exporter les r\u00e9sultats", None))
+        self.pb_reset.setText(QCoreApplication.translate("MainWindow", u"R\u00e9initialiser", None))
+        self.pb_show_backtest_results.setText(QCoreApplication.translate("MainWindow", u"R\u00e9sultats du backtest", None))
+        self.pb_show_correlation_window.setText(QCoreApplication.translate("MainWindow", u"Corr\u00e9lation des facteurs", None))
     # retranslateUi
 

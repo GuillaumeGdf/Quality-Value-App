@@ -2,9 +2,12 @@ import numpy as np
 import yfinance as yf
 import pandas as pd
 
+from model.tikr_2016_2024 import Analysis
+from model.parameters import Parameters
 
 class PortfolioMetricsEngine:
-    def __init__(self, tickers_list: list[str], start_date: str, end_date: str):
+    def __init__(self, parameters: Parameters, tickers_list: list[str], start_date: str, end_date: str):
+        self.parameters = parameters
         self.tickers = tickers_list
         self.start_date = start_date
         self.end_date = end_date
@@ -13,10 +16,15 @@ class PortfolioMetricsEngine:
         self.benchmark_metrics: dict[str, float] = {}
         self.metrics: dict[str, float] = {}
 
-        self.download_data()
-
     def download_data(self):
         self.database = yf.download(tickers=self.tickers, start=self.start_date, end=self.end_date, interval='1d')['Close']
+
+    def run_backtest(self):
+        self.analysis_engine = Analysis()
+        self.analysis_engine.download_data()
+        self.analysis_engine.run_backtest()
+
+
 
     def compute_metrics(self, capital: float, stock_weights: np.ndarray, risk_free_rate: float = 0.045):
         if not np.isclose(stock_weights.sum(), 1.0):
@@ -110,8 +118,8 @@ class PortfolioMetricsEngine:
         }
 
 
-a = PortfolioMetricsEngine(tickers_list=['AAPL', 'NVDA', 'MSFT'], start_date='2020-01-01', end_date='2024-01-01')
-r = a.download_data()
-c = a.compute_metrics(capital=5000, stock_weights=np.array([0.3, 0.4, 0.3]))
-
-print()
+# a = PortfolioMetricsEngine(tickers_list=['AAPL', 'NVDA', 'MSFT'], start_date='2020-01-01', end_date='2024-01-01')
+# r = a.download_data()
+# c = a.compute_metrics(capital=5000, stock_weights=np.array([0.3, 0.4, 0.3]))
+#
+# print()
