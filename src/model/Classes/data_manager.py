@@ -1,5 +1,8 @@
+from typing import Optional
+
 import pandas as pd
 import numpy as np
+from scipy.stats import norm
 
 
 class RobustFinancialLoader:
@@ -178,3 +181,91 @@ class RobustFinancialLoader:
 
     def get_feature_names(self):
         return self.final_feature_names
+
+
+class RobustTargetGenerator:
+    def __init__(self, start_date, price_df: pd.DataFrame, sector_mapping: pd.Series):
+        """
+        Génère le vecteur cible y de façon robuste et neutralisée.
+
+        Args:
+            price_df: DataFrame des prix (Total Return) avec Tickers en colonnes et Dates en index.
+            sector_mapping: Series avec Ticker en index et Nom du Secteur en valeur.
+        """
+        self.start_date = start_date
+        self.prices = price_df
+        self.sectors = sector_mapping
+
+    def calculate_forward_returns(self, date_t, horizons: Optional[list[int]] = None):
+        """
+        Calcule la moyenne des rendements logarithmiques sur T+6, T+12, T+18 mois.
+        """
+        # Conversion de l'index en datetime si nécessaire
+        if horizons is None:
+            horizons = [6, 12, 18]
+
+        self.prices.index = pd.to_datetime(self.prices.index)
+        date_t = self.prices.index[self.prices.index.get_indexer([date_t], method='nearest')[0]]
+
+        returns_list = []
+        for h in horizons:
+            # Calcul de la date future (approximation par 21 jours de bourse par mois)
+            target_date = date_t + pd.DateOffset(months=h)
+
+            # On cherche la date de bourse la plus proche disponible
+            actual_target_date = self.prices.index[self.prices.index.get_indexer([target_date], method='nearest')[0]]
+
+            # Rendement logarithmique : ln(P_future / P_now)
+            # Note : On utilise .loc pour s'assurer de ne pas avoir de look-ahead bias
+            ret = np.log(self.prices.loc[actual_target_date] / self.prices.loc[date_t])
+            returns_list.append(ret)
+
+        # Moyenne des rendements (T+6, T+12, T+18) / 3
+        avg_return = pd.concat(returns_list, axis=1).mean(axis=1)
+        return avg_return
+
+    def get_robust_y(self, date_t, method='Option_B', risk_adjust=False):
+        """
+        Génère le vecteur Y final.
+
+        Args:
+            date_t: La date charnière (fin de la période X, début de la période Y).
+            method: 'Option_A' (MAD Z-Score) ou 'Option_B' (Rank-Inverse Normal).
+            risk_adjust: Si True, divise par la volatilité passée (Sharpe-like).
+        """
+        # 1. Calcul du rendement moyen futur
+        y_raw = self.calculate_forward_returns(date_t)
+        date_t = pd.to_datetime(date_t)
+        # 2. Ajustement par le risque (Volatilité historique sur 12 mois avant date_t)
+        if risk_adjust:
+            start_vol = date_t - pd.DateOffset(years=1)
+            past_returns = np.log(self.prices.loc[start_vol:date_t]).diff()
+            vol = past_returns.std() * np.sqrt(252)
+            y_raw = y_raw / vol
+
+        # 3. Neutralisation sectorielle (Excess Return vs Sector Median)
+        df = pd.DataFrame({'sector': self.sectors, 'y': y_raw})
+        df = df.dropna()
+
+        # Soustraire la médiane de chaque secteur
+        df['y_excess'] = df.groupby('sector')['y'].transform(lambda x: x - x.median())
+
+        # 4. Robustification finale
+        if method == 'Option_A':
+            # Option A : MAD Z-Score
+            median = df['y_excess'].median()
+            mad = (df['y_excess'] - median).abs().median()
+            y_final = (df['y_excess'] - median) / (mad + 1e-8)
+            y_final = y_final.clip(-5, 5)  # Clipping robuste
+
+        elif method == 'Option_B':
+            # Option B : Rank-based Inverse Normal Transformation (Gaussianisation)
+            # On transforme les rangs en probabilités, puis on passe par la fonction quantile Normale
+            ranks = df['y_excess'].rank(method='average')
+            percentiles = ranks / (len(ranks) + 1)
+            y_final = pd.Series(norm.ppf(percentiles), index=df.index)
+
+        else:
+            raise ValueError("Méthode inconnue. Choisir 'Option_A' ou 'Option_B'.")
+
+        return df, y_final
