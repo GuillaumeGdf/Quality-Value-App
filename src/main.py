@@ -1,11 +1,27 @@
 import os
 import sys
+
+import sys
+import logging
+
+# Configuration d'un logger minimaliste
+# logging.basicConfig(level=logging.DEBUG)
+# logger = logging.getLogger("FATAL_DEBUG")
+#
+# def handle_exception(exc_type, exc_value, exc_traceback):
+#     logger.critical("Exception non gérée", exc_info=(exc_type, exc_value, exc_traceback))
+#
+# sys.excepthook = handle_exception
+
+print("--- Début du chargement de l'IHM ---")
+
 from datetime import datetime
 from functools import reduce
 
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import yfinance as yf
 from pathlib import Path
 import matplotlib.pyplot as plt
 from PySide6.QtGui import QIcon, QAction, QPixmap, QActionGroup
@@ -20,12 +36,14 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QFileDialog,
 
 from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QRect, QEasingCurve, QPropertyAnimation
 
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
-from model.Classes.data_manager import RobustFinancialLoader
+from model.Classes.data_manager import RobustFinancialLoader, RobustTargetGenerator
+from model.ModelSelection.HAEN_Engine import HuberAdaptiveElasticNetPipeline
+from model.RegressionAlgorithms.Solveurs.BaseAdaptativeEngine import RobustRegressorFactory
+from model.RegressionAlgorithms.Solveurs.BaseRobustRegressors import SolverType
+from model.RegressionAlgorithms.Solveurs.Robust_utils import ADMMWarmStartPath
 from model.parameters import Parameters
-from model.Classes.excel_loader import ExcelLoader
 from model.tikr_2016_2024 import Analysis, monte_carlo_sensitivity_analysis, write_excel
 from model.portfolio_metrics_engine import PortfolioMetricsEngine
 
@@ -586,7 +604,18 @@ class MainWindow(QMainWindow):
                                                                                          'Piotroski', 'Value',
                                                                                          'Solvency'])
         X_df_lasso = loader_lasso.get_dataframe()
-        X_matrice_lasso = loader_lasso.get_X()
+
+        corr_matrix = X_df_lasso.corr()
+        mask = np.ones(corr_matrix.shape, dtype=bool)
+        np.fill_diagonal(mask, False)
+        masked_corr = corr_matrix.where(mask)
+
+        # 4. Trouver la corrélation max en valeur absolue (pour détecter les corrélations négatives fortes)
+        abs_corr = masked_corr.abs()
+        max_corr_val = abs_corr.max().max()
+
+        idx = abs_corr.stack().idxmax()
+        print(f"Corrélation maximale absolue : {max_corr_val:.4f} entre {idx[0]} et {idx[1]}")
 
         self.results_storage = {'Revenues': self.revenues_results,
                                 'GrossMargin': self.gross_margin_results,
@@ -597,6 +626,146 @@ class MainWindow(QMainWindow):
                                 'Value': self.value_results,
                                 'Debt': self.debt_series
                                 }
+        start_year = 2017
+        start_year_dt = f'{start_year}-01-01'
+        end_year_dt = f'{start_year + 2}-01-01'
+        tickers_list = self.revenues_results.index.to_list()
+
+        # Téléchargement par batch pour éviter les timeouts
+        batch_size = 20
+        all_prices = []
+        all_volumes = []
+
+        for i in range(0, len(tickers_list), batch_size):
+            batch = tickers_list[i:i + batch_size]
+            print(f"   Batch {i // batch_size + 1}/{(len(tickers_list) - 1) // batch_size + 1}...")
+
+            try:
+                data = yf.download(
+                    batch,
+                    start=start_year_dt,
+                    end=end_year_dt,
+                    auto_adjust=True,
+                    progress=False,
+                    threads=True
+                )
+
+                if len(batch) == 1:
+                    prices_batch = data['Close'].to_frame(name=batch[0])
+                    volumes_batch = data['Volume'].to_frame(name=batch[0])
+                else:
+                    prices_batch = data['Close']
+                    volumes_batch = data['Volume']
+
+                all_prices.append(prices_batch)
+                all_volumes.append(volumes_batch)
+
+            except Exception as e:
+                print(f"   ⚠️  Erreur batch {i // batch_size + 1}: {e}")
+                continue
+
+        # Concatenation
+        prices = pd.concat(all_prices, axis=1)
+        volumes = pd.concat(all_volumes, axis=1)
+        sector_mapping = self.revenues_results['Sector']
+
+        # Récupération du vecteur d'observation y : rendements excédentaires par secteur
+        robust_y_gen = RobustTargetGenerator(start_date=start_year_dt, price_df=prices, sector_mapping=sector_mapping)
+        df_returns, y = robust_y_gen.get_robust_y(start_year_dt, method='Option_A')
+
+        # Alignement des tickers
+        common_tickers = X_df_lasso.index.intersection(y.index)
+        X_aligned = X_df_lasso.loc[common_tickers]
+        y_aligned = y.loc[common_tickers]
+
+        """
+            Utilisation des méthodes abstraites
+        """
+        # Un simple changement de cette variable modifie l'intégralité du comportement mathématique
+        CHOIX_SOLVEUR = SolverType.ADMM_ADAPTIVE_HUBER_LASSO
+
+        # Instanciation dynamique via la Factory
+        screener_regressor = RobustRegressorFactory.create_solver(
+            solver_type=CHOIX_SOLVEUR,
+            lambda_=0.5,
+            delta=1.35,
+            fit_intercept=True,
+            verbose=True
+        )
+
+        # Utilisation standardisée (l'intercept n'est pas pénalisé en interne)
+        screener_regressor.fit(X_aligned.to_numpy(), y_aligned.to_numpy())
+
+        # Accès propre aux données financières finales
+        facteurs_clefs = screener_regressor.coef_
+        alpha_moyen = screener_regressor.intercept_
+
+        # == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == =
+        # AFFICHAGE ET EXPLOITATION DES FACTEURS SÉLECTIONNÉS
+        # =====================================================================
+        feature_names = X_aligned.columns.tolist()
+        threshold_selection = 1e-4
+        facteurs_retenus = [name for name, coef in zip(feature_names, facteurs_clefs) if
+                            abs(coef) > threshold_selection]
+
+        print("\n" + "=" * 50)
+        print(f"   RÉSULTATS DE LA SÉLECTION FACTORIELLE ({CHOIX_SOLVEUR.name})   ")
+        print("=" * 50)
+        print(f"Intercept (Alpha moyen sectoriel) : {alpha_moyen:.5f}")
+        print(f"Facteurs conservés pour le portefeuille : {facteurs_retenus}")
+        print("-" * 50)
+
+        for nom, coef in zip(feature_names, facteurs_clefs):
+            statut = "[CONSERVÉ]" if abs(coef) > threshold_selection else "[EXCLU]"
+            print(f"  -> {statut:<11} Facteur {nom:<15} : Coefficient β = {coef:.5f}")
+        print("=" * 50)
+
+        """
+            Test du code par chemin de régularisation
+        """
+        optimizer = ADMMWarmStartPath(n_lambdas=50)
+        optimizer.fit(X_aligned.to_numpy(), y_aligned.to_numpy())
+        optimizer.plot_path(feature_names=X_aligned.columns.tolist())
+
+        # Utilisation des meilleurs paramètres trouvés
+        best_beta = optimizer.best_coef_
+        best_intercept = optimizer.best_intercept_
+
+        print(f"\n[INFO] Modèle final sélectionné via BIC Robuste.")
+        print(f"Optimal Lambda : {optimizer.best_lambda_:.6f}")
+
+        """
+            Appel au code fonctionnel
+        """
+
+        # 1. Instanciation de la pipeline (n_jobs=-1 utilise automatiquement tous tes cœurs CPU)
+        pipeline = HuberAdaptiveElasticNetPipeline(criterion="BIC", delta=1.345, n_jobs=5)
+
+        # 2. Entraînement : On passe le DataFrame X et la Series y.
+        # La classe va aligner les Tickers communs en interne, standardiser de façon robuste et lancer le Grid Search MP.
+        pipeline.fit(X_df_lasso, y, n_l1=100)
+
+        # =====================================================================
+        # EXTRACTION ET EXPLOITATION DES FACTEURS SÉLECTIONNÉS
+        # =====================================================================
+
+        # 3. Récupération des facteurs alpha statistiquement robustes
+        facteurs_retenus = pipeline.get_selected_factors(threshold=1e-4)
+
+        print("\n" + "=" * 50)
+        print("       RÉSULTATS DE LA SÉLECTION FACTORIELLE HAEN      ")
+        print("=" * 50)
+        print(f"Facteurs conservés pour le portefeuille : {facteurs_retenus}")
+        print("-" * 50)
+
+        # Affichage des coefficients beta pour l'IHM ou le débugging
+        for nom, coef in zip(pipeline.feature_names, pipeline.beta_final):
+            print(f"  -> Facteur {nom:<15} : Coefficient β = {coef:.5f}")
+        print("=" * 50)
+
+        pipeline.print_factor_significance(pipeline, X_df_lasso, y)
+
+        pipeline.plot_regularization_path()
 
         self.all_ranks_df = pd.DataFrame({'Revenues': self.revenues_results['Rank'],
                                           'GrossMargin': self.gross_margin_results['Rank'],
